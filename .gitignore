@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+yarn.lock
+pnpm-lock.yaml
+
+# Production builds
+dist/
+build/
+out/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Logs
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# Testing
+coverage/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# Development
+.cache/
+*.pem
+
+# Vite
+.vite/
+
+# Generated chassis files
+output/
+
+# Misc
+.turbo/
+*.log
+phase1_*.txt

@@ -1,0 +1,175 @@
+export interface DroneFrame {
+  id: string;
+  name: string;
+  type: 'quad' | 'hexa' | 'octo' | 'tri';
+  weight: number; // grams
+  maxPayload: number; // grams
+  armLength: number; // mm
+  price: number; // INR
+  materials: string[];
+  dimensions: {
+    length: number;
+    width: number;
+    height: number;
+  };
+  tags: string[];
+  image?: string;
+  motorMounts: number;
+}
+
+export interface Motor {
+  id: string;
+  name: string;
+  kv: number; // RPM per volt
+  weight: number; // grams
+  thrustMax: number; // grams at max throttle
+  currentMax: number; // amps
+  voltage: string; // e.g. "3S-6S"
+  price: number; // INR
+  tags: string[];
+  efficiency: number; // thrust per watt
+  diameter: number; // mm
+  height: number; // mm
+}
+
+export interface Battery {
+  id: string;
+  name: string;
+  capacity: number; // mAh
+  voltage: number; // nominal voltage
+  cells: number; // 3S, 4S, 6S etc
+  weight: number; // grams
+  maxDischarge: number; // C rating
+  price: number; // INR
+  tags: string[];
+  estimatedFlightTime: number; // estimated minutes at hover
+}
+
+export interface Propeller {
+  id: string;
+  name: string;
+  diameter: number; // inches
+  pitch: number; // inches
+  weight: number; // grams
+  material: string;
+  price: number; // INR
+  tags: string[];
+  maxRPM: number;
+}
+
+export interface ESC {
+  id: string;
+  name: string;
+  ampRating: number; // amps continuous
+  voltage: string; // e.g. "3S-6S"
+  weight: number; // grams
+  protocol: 'PWM' | 'OneShot' | 'DShot';
+  price: number; // INR
+  tags: string[];
+}
+
+export interface Camera {
+  id: string;
+  name: string;
+  type: 'FPV' | 'HD' | 'NONE';
+  weight: number; // grams
+  resolution?: string; // e.g. "1080p"
+  fov: number; // degrees
+  price: number; // INR
+  tags: string[];
+  lensType?: string;
+}
+
+export interface DroneConfig {
+  frame: DroneFrame;
+  motors: Motor[];
+  battery: Battery;
+  propellers: Propeller[];
+  escs: ESC[];
+  camera: Camera;
+  canopy?: Canopy;
+  cameraHarness?: CameraHarness;
+  whoop?: WhoopGuard;
+  frameColorId: string;
+  motorColorId: string;
+  propellerColorId: string;
+  batteryColorId: string;
+  escColorId: string;
+  cameraHarnessColorId: string;
+  additionalComponents?: {
+    gimbal?: boolean;
+    lights?: boolean;
+    gps?: boolean;
+  };
+}
+
+export interface ColorOption {
+  id: string;
+  name: string;
+  colorHex: number;
+}
+
+export interface DroneSpecs {
+  totalWeight: number;
+  maxThrust: number;
+  thrustToWeight: number;
+  estimatedFlightTime: number;
+  maxSpeed: number;
+  buildCost: number;
+  /** Total pack current at hover, amps (prop-load model). */
+  hoverCurrent?: number;
+  /** Stick position needed to hover, % of full throttle. */
+  hoverThrottle?: number;
+  /** Worst-case full-throttle draw across all motors, amps. */
+  maxCurrentDraw?: number;
+}
+
+export interface MarketDrone {
+  id: string;
+  name: string;
+  manufacturer: string;
+  type: 'quad' | 'hexa' | 'octo';
+  weight: number;
+  maxFlightTime: number;
+  maxSpeed: number;
+  price: number;
+  maxPayload: number;
+}
+
+export interface ComparisonResult {
+  userDrone: DroneSpecs;
+  marketDrones: (MarketDrone & { comparisonScore: number })[];
+  efficiency: {
+    score: number;
+    rating: 'excellent' | 'good' | 'average' | 'poor';
+    recommendations: string[];
+  };
+}
+
+export interface Canopy {
+  id: string;
+  name: string;
+  weight: number; // grams
+  price: number; // INR
+  style: 'NONE' | 'CLEAR' | 'SMOKED' | 'CARBON';
+  colorHex: number;
+  opacity: number;
+}
+
+export interface CameraHarness {
+  id: string;
+  name: string;
+  weight: number; // grams
+  price: number; // INR
+  style: 'COMPACT' | 'STANDARD' | 'PRO';
+}
+
+export interface WhoopGuard {
+  id: string;
+  name: string;
+  weight: number; // grams
+  price: number; // INR
+  style: 'NONE' | 'WHOOP' | 'DUCTED';
+  colorHex: number;
+  opacity: number;
+}
