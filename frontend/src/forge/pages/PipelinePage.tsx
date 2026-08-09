@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useForgeStore } from '../store';
 
@@ -44,23 +45,61 @@ export const PipelinePage: React.FC = () => {
   const done = job.steps.filter((s) => s.status === 'done').length;
   const pct = Math.round((done / job.steps.length) * 100);
   const designGenerated = job.status === 'done' && job.alternatives.some((a) => !!a.stlUrl);
+  const headline = useMemo(() => {
+    if (designGenerated) return 'Design generated';
+    if (job.status === 'failed') return 'Job failed';
+    return 'CAD loop running';
+  }, [designGenerated, job.status]);
 
   return (
-    <>
-      <h1 className="forge-h1">
-        {designGenerated ? 'Design generated' : job.status === 'failed' ? 'Job failed' : 'CAD loop running'}
-      </h1>
-      <p className="forge-sub">
-        Job <code>{job.id}</code>
-        {job.error ? ` — ${job.error}` : ''}
-      </p>
-      <div className="forge-progress">
-        <span style={{ width: `${Math.max(4, pct)}%` }} />
-      </div>
+    <div className="forge-pipeline-shell">
+      <motion.section
+        className="forge-hero-card"
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className="forge-hero-copy">
+          <div className="forge-eyebrow">Genesis Forge · AI-native CAD loop</div>
+          <h1 className="forge-h1">{headline}</h1>
+          <p className="forge-sub">
+            Job <strong>{job.id}</strong>
+            {job.error ? ` — ${job.error}` : ''}
+          </p>
+          <div className="forge-progress">
+            <span style={{ width: `${Math.max(6, pct)}%` }} />
+          </div>
+          <div className="forge-hero-actions">
+            {designGenerated ? (
+              <Link to={`/forge/results/${job.id}`} className="forge-btn">
+                Review {job.alternatives.length} alternatives →
+              </Link>
+            ) : (
+              <Link to="/forge" className="forge-btn secondary">
+                Revise brief
+              </Link>
+            )}
+          </div>
+        </div>
+        <div className="forge-hero-visual" aria-hidden="true">
+          <div className="forge-orb" />
+          <div className="forge-ring" />
+          <div className="forge-panel">
+            <div className="forge-panel-dot" />
+            <div className="forge-panel-dot" />
+            <div className="forge-panel-dot" />
+          </div>
+        </div>
+      </motion.section>
 
-      <ul className="forge-step-list">
+      <motion.ul
+        className="forge-step-list"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.08 }}
+      >
         {job.steps.map((step) => (
-          <li key={step.id} className={step.status}>
+          <motion.li key={step.id} className={step.status} whileHover={{ y: -2, scale: 1.01 }}>
             <span className="forge-dot">{step.status === 'done' ? '✓' : step.status === 'failed' ? '✕' : ''}</span>
             <div>
               <strong>{step.label}</strong>
@@ -68,25 +107,9 @@ export const PipelinePage: React.FC = () => {
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.82rem', color: '#6b7280' }}>{step.detail}</p>
               )}
             </div>
-          </li>
+          </motion.li>
         ))}
-      </ul>
-
-      {designGenerated && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <p style={{ color: '#059669', fontWeight: 800, marginBottom: '0.75rem' }}>Design generated</p>
-          <Link to={`/forge/results/${job.id}`} className="forge-btn">
-            Review {job.alternatives.length} alternatives →
-          </Link>
-        </div>
-      )}
-      {job.status === 'failed' && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <Link to="/forge" className="forge-btn secondary">
-            Revise brief
-          </Link>
-        </div>
-      )}
-    </>
+      </motion.ul>
+    </div>
   );
 };

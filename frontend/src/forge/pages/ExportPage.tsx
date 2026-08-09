@@ -58,8 +58,22 @@ export const ExportPage: React.FC = () => {
 
   return (
     <>
-      <h1 className="forge-h1">{alt.name} — export</h1>
-      <p className="forge-sub">Job {job.id} · score {alt.score}/100</p>
+      <section className="forge-card forge-card--elevated forge-hero-card forge-hero-card--brief" style={{ marginBottom: '1rem' }}>
+        <div>
+          <div className="forge-eyebrow">Export</div>
+          <h1 className="forge-h1">{alt.name} — export</h1>
+          <p className="forge-sub">Job {job.id} · score {alt.score}/100</p>
+          <div className="forge-pill-row">
+            <span className="forge-pill">STL package</span>
+            <span className="forge-pill">Engineering report</span>
+            <span className="forge-pill">BOM ready</span>
+          </div>
+        </div>
+        <div className="forge-hero-visual forge-hero-visual--brief">
+          <div className="forge-orb" />
+          <div className="forge-ring" />
+        </div>
+      </section>
 
       <div className="forge-grid-2">
         <div className="forge-card">

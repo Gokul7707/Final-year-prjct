@@ -80,6 +80,34 @@ export interface Camera {
   lensType?: string;
 }
 
+export interface Canopy {
+  id: string;
+  name: string;
+  weight: number;
+  price: number;
+  style: 'NONE' | 'CLEAR' | 'SMOKED' | 'CARBON';
+  colorHex: number;
+  opacity: number;
+}
+
+export interface CameraHarness {
+  id: string;
+  name: string;
+  weight: number;
+  price: number;
+  style: 'COMPACT' | 'STANDARD' | 'PRO';
+}
+
+export interface WhoopGuard {
+  id: string;
+  name: string;
+  weight: number;
+  price: number;
+  style: 'NONE' | 'WHOOP' | 'DUCTED';
+  colorHex: number;
+  opacity: number;
+}
+
 export interface DroneConfig {
   frame: DroneFrame;
   motors: Motor[];
@@ -87,6 +115,15 @@ export interface DroneConfig {
   propellers: Propeller[];
   escs: ESC[];
   camera: Camera;
+  canopy?: Canopy;
+  cameraHarness?: CameraHarness;
+  whoop?: WhoopGuard;
+  frameColorId?: string;
+  motorColorId?: string;
+  propellerColorId?: string;
+  batteryColorId?: string;
+  escColorId?: string;
+  cameraHarnessColorId?: string;
   additionalComponents?: {
     gimbal?: boolean;
     lights?: boolean;

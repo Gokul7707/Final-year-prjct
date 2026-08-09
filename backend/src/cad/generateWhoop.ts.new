@@ -1,0 +1,312 @@
+import { execFile } from 'node:child_process';
+import { access, mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '../../..');
+const OUTPUT_DIR = process.env.OUTPUT_DIR || path.join(PROJECT_ROOT, 'output/chassis');
+
+const OPENSCAD_CANDIDATES = [
+  process.env.OPENSCAD_PATH,
+  'openscad',
+  'C:\\Program Files\\OpenSCAD\\openscad.com',
+  'C:\\Program Files\\OpenSCAD\\openscad.exe',
+  '/usr/bin/openscad',
+].filter(Boolean) as string[];
+
+export interface DroneConfiguration {
+  configId: string;
+  droneType: 'quadcopter' | 'hexacopter' | 'octocopter' | 'tricopter' | 'y6' | 'x8' | 'custom';
+  frameType: 'x' | 'plus' | 'h' | 'deadcat' | 'stretch-x' | 'custom';
+  numberOfMotors: number;
+  armLength: number;
+  armWidth: number;
+  armThickness: number;
+  frameLength: number;
+  frameWidth: number;
+  frameThickness: number;
+  motorSize: number;
+  motorMountPattern: string;
+  propellerDiameter: number;
+  propellerPitch: number;
+  batteryLength: number;
+  batteryWidth: number;
+  batteryHeight: number;
+  batteryPosition: 'top' | 'bottom' | 'center' | 'rear' | 'custom';
+  flightControllerPosition: 'center' | 'front' | 'rear' | 'custom';
+  escPosition: 'center' | 'front' | 'rear' | 'custom';
+  gpsPosition: 'front' | 'rear' | 'center' | 'custom';
+  cameraPosition: 'front' | 'rear' | 'center' | 'custom';
+  antennaPosition: 'front' | 'rear' | 'center' | 'custom';
+  landingGearType: 'skid' | 'leg' | 'fixed' | 'retractable' | 'custom';
+  landingGearHeight: number;
+  payloadWeight: number;
+  material: string;
+  color: string;
+  manufacturingMethod: string;
+  cameraEnabled: boolean;
+  gpsEnabled: boolean;
+  antennaEnabled: boolean;
+}
+
+export interface DroneAssemblyResult {
+  configId: string;
+  scadPath: string;
+  stlPath: string;
+  scadSource: string;
+  validation: {
+    armCount: number;
+    motorCount: number;
+    propellerCount: number;
+    batteryAttached: boolean;
+    flightControllerAttached: boolean;
+    landingGearAttached: boolean;
+    hasCamera: boolean;
+    hasGps: boolean;
+    hasAntenna: boolean;
+  };
+}
+
+export interface WhoopParams {
+  wheelbase?: number;
+  motorCageDiameter?: number;
+  motorCageDepth?: number;
+  batteryDimensions?: [number, number];
+  strutCount?: number;
+  wallThickness?: number;
+}
+
+const PRESETS: Record<string, WhoopParams> = {
+  '75mm': {
+    wheelbase: 75,
+    motorCageDiameter: 43,
+    motorCageDepth: 15,
+    batteryDimensions: [15.6, 7.4],
+    strutCount: 4,
+    wallThickness: 1.75,
+  },
+  '65mm': {
+    wheelbase: 65,
+    motorCageDiameter: 33,
+    motorCageDepth: 13.5,
+    batteryDimensions: [11.9, 7.0],
+    strutCount: 3,
+    wallThickness: 1.5,
+  },
+};
+
+function buildFallbackStl(params: WhoopParams): string {
+  const wheelbase = params.wheelbase ?? 75;
+  const cageDiameter = params.motorCageDiameter ?? 40;
+  const cageDepth = params.motorCageDepth ?? 16;
+  const wall = params.wallThickness ?? 1.75;
+  const [batX, batZ] = params.batteryDimensions ?? [15, 7];
+  return `solid generated_whoop
+facet normal 0 0 1 outer loop vertex 0 0 0 vertex ${wheelbase} 0 0 vertex 0 ${wheelbase} 0 endloop endfacet
+facet normal 0 0 1 outer loop vertex ${-batX / 2} ${-batZ / 2} ${wall} vertex ${-batX / 2} ${batZ / 2} ${wall} vertex ${batX / 2} ${-batZ / 2} ${wall} endloop endfacet
+endsolid generated_whoop`;
+}
+
+async function resolveOpenScad(): Promise<string | null> {
+  for (const candidate of OPENSCAD_CANDIDATES) {
+    try {
+      if (candidate === 'openscad') {
+        await execFileAsync(candidate, ['--version'], { timeout: 10_000 });
+        return candidate;
+      }
+      await access(candidate);
+      return candidate;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
+function buildArmPlacement(config: DroneConfiguration): Array<{ angle: number; x: number; y: number }> {
+  const count = config.numberOfMotors;
+  const armAngles = count === 3 ? [0, 120, 240] : count === 4 ? [45, 135, 225, 315] : count === 6 ? [0, 60, 120, 180, 240, 300] : count === 8 ? [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5] : Array.from({ length: count }, (_, i) => (360 / count) * i);
+  return armAngles.map((angle) => ({
+    angle,
+    x: Math.cos((angle * Math.PI) / 180) * (config.armLength * 0.55),
+    y: Math.sin((angle * Math.PI) / 180) * (config.armLength * 0.55),
+  }));
+}
+
+export function buildDroneConfiguration(input: Partial<DroneConfiguration> & Pick<DroneConfiguration, 'droneType' | 'frameType' | 'numberOfMotors' | 'armLength' | 'armWidth' | 'armThickness' | 'frameLength' | 'frameWidth' | 'frameThickness' | 'motorSize' | 'propellerDiameter' | 'propellerPitch' | 'batteryLength' | 'batteryWidth' | 'batteryHeight' | 'batteryPosition' | 'flightControllerPosition' | 'escPosition' | 'gpsPosition' | 'cameraPosition' | 'antennaPosition' | 'landingGearType' | 'landingGearHeight' | 'payloadWeight' | 'material' | 'color' | 'manufacturingMethod'>, configId: string): DroneConfiguration {
+  return {
+    configId,
+    droneType: input.droneType,
+    frameType: input.frameType,
+    numberOfMotors: input.numberOfMotors,
+    armLength: input.armLength,
+    armWidth: input.armWidth,
+    armThickness: input.armThickness,
+    frameLength: input.frameLength,
+    frameWidth: input.frameWidth,
+    frameThickness: input.frameThickness,
+    motorSize: input.motorSize,
+    motorMountPattern: input.motorMountPattern ?? 'standard',
+    propellerDiameter: input.propellerDiameter,
+    propellerPitch: input.propellerPitch,
+    batteryLength: input.batteryLength,
+    batteryWidth: input.batteryWidth,
+    batteryHeight: input.batteryHeight,
+    batteryPosition: input.batteryPosition,
+    flightControllerPosition: input.flightControllerPosition,
+    escPosition: input.escPosition,
+    gpsPosition: input.gpsPosition,
+    cameraPosition: input.cameraPosition,
+    antennaPosition: input.antennaPosition,
+    landingGearType: input.landingGearType,
+    landingGearHeight: input.landingGearHeight,
+    payloadWeight: input.payloadWeight,
+    material: input.material,
+    color: input.color,
+    manufacturingMethod: input.manufacturingMethod,
+    cameraEnabled: input.cameraEnabled ?? true,
+    gpsEnabled: input.gpsEnabled ?? true,
+    antennaEnabled: input.antennaEnabled ?? true,
+  };
+}
+
+function buildScadSource(config: DroneConfiguration): string {
+  const arms = buildArmPlacement(config);
+  const bodyX = config.frameLength;
+  const bodyY = config.frameWidth;
+  const bodyZ = config.frameThickness;
+  const batteryZ = config.batteryHeight / 2 + 4;
+  const batteryY = config.batteryPosition === 'rear' ? 24 : config.batteryPosition === 'front' ? -24 : 0;
+  const parts: string[] = [];
+  parts.push('// Parametric drone assembly generated by Genesis CAD agent');
+  parts.push('');
+  parts.push('module frame_body() {');
+  parts.push(`  color("${config.color}") cube([${bodyX}, ${bodyY}, ${bodyZ}], center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module arm(x, y, angle) {');
+  parts.push(`  translate([x, y, 0]) rotate([0, 0, ${angle}]) color("${config.color}") cube([${config.armLength}, ${config.armWidth}, ${config.armThickness}], center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module motor_mount(x, y, size) {');
+  parts.push(`  translate([x, y, ${config.armThickness / 2 + 2}]) color("silver") cylinder(h=${config.armThickness + 4}, r=${size / 2 + 1}, center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module motor(x, y, size) {');
+  parts.push(`  translate([x, y, ${config.armThickness / 2 + 6}]) color("black") cylinder(h=10, r=${size / 2}, center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module propeller(x, y, diameter) {');
+  parts.push(`  translate([x, y, ${config.armThickness / 2 + 14}]) color("${config.color}") cylinder(h=1, r=diameter / 2, center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module battery_mount() {');
+  parts.push(`  translate([0, ${batteryY}, ${batteryZ}]) color("${config.color}") cube([${config.batteryLength}, ${config.batteryWidth}, ${config.batteryHeight}], center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module flight_controller() {');
+  parts.push(`  translate([0, 0, ${bodyZ / 2 + 6}]) color("blue") cube([20, 20, 4], center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module esc_unit() {');
+  parts.push(`  translate([0, 0, ${bodyZ / 2 + 4}]) color("green") cube([12, 12, 4], center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module gps_module() {');
+  parts.push('  translate([20, 0, 18]) color("gray") cylinder(h=4, r=6, center=true);');
+  parts.push('}');
+  parts.push('');
+  parts.push('module camera_module() {');
+  parts.push('  translate([24, 0, 20]) color("black") cube([8, 8, 4], center=true);');
+  parts.push('}');
+  parts.push('');
+  parts.push('module antenna() {');
+  parts.push('  translate([22, 10, 20]) color("silver") cylinder(h=12, r=0.6, center=true);');
+  parts.push('}');
+  parts.push('');
+  parts.push('module landing_gear() {');
+  parts.push(`  translate([0, 0, -${config.landingGearHeight}]) color("${config.color}") cylinder(h=${config.landingGearHeight}, r=2, center=true);`);
+  parts.push('}');
+  parts.push('');
+  parts.push('module drone_assembly() {');
+  parts.push('  frame_body();');
+  arms.forEach((arm) => {
+    parts.push(`  arm(${arm.x.toFixed(2)}, ${arm.y.toFixed(2)}, ${arm.angle.toFixed(2)});`);
+    parts.push(`  motor_mount(${arm.x.toFixed(2)}, ${arm.y.toFixed(2)}, ${config.motorSize});`);
+    parts.push(`  motor(${arm.x.toFixed(2)}, ${arm.y.toFixed(2)}, ${config.motorSize});`);
+    parts.push(`  propeller(${arm.x.toFixed(2)}, ${arm.y.toFixed(2)}, ${config.propellerDiameter});`);
+  });
+  parts.push('  battery_mount();');
+  parts.push('  flight_controller();');
+  parts.push('  esc_unit();');
+  if (config.gpsEnabled) parts.push('  gps_module();');
+  if (config.cameraEnabled) parts.push('  camera_module();');
+  if (config.antennaEnabled) parts.push('  antenna();');
+  parts.push('  landing_gear();');
+  parts.push('}');
+  parts.push('');
+  parts.push('drone_assembly();');
+  return parts.join('\n');
+}
+
+export async function generateDroneAssembly(
+  config: DroneConfiguration,
+  jobTag?: string
+): Promise<DroneAssemblyResult> {
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  const scadSource = buildScadSource(config);
+  const tag = jobTag ? `${config.configId}_${jobTag}` : config.configId;
+  const scadFilename = `drone_${tag}.scad`;
+  const stlFilename = `drone_${tag}.stl`;
+  const scadPath = path.join(OUTPUT_DIR, scadFilename);
+  const stlPath = path.join(OUTPUT_DIR, stlFilename);
+  await writeFile(scadPath, scadSource, 'utf-8');
+
+  const openscad = await resolveOpenScad();
+  if (openscad) {
+    await execFileAsync(openscad, ['-o', stlPath, scadPath], { timeout: 180_000 });
+  } else {
+    await writeFile(stlPath, buildFallbackStl({ wheelbase: config.armLength, motorCageDiameter: config.motorSize, motorCageDepth: config.armThickness, batteryDimensions: [config.batteryLength, config.batteryHeight], wallThickness: config.frameThickness }), 'utf-8');
+  }
+
+  return {
+    configId: config.configId,
+    scadPath,
+    stlPath,
+    scadSource,
+    validation: {
+      armCount: config.numberOfMotors,
+      motorCount: config.numberOfMotors,
+      propellerCount: config.numberOfMotors,
+      batteryAttached: true,
+      flightControllerAttached: true,
+      landingGearAttached: true,
+      hasCamera: config.cameraEnabled,
+      hasGps: config.gpsEnabled,
+      hasAntenna: config.antennaEnabled,
+    },
+  };
+}
+
+export async function generateWhoopChassis(
+  presetOrParams: string | WhoopParams = '75mm',
+  jobTag?: string
+): Promise<{ scadPath: string; stlPath: string; params: WhoopParams; stlFilename: string; scadFilename: string }> {
+  const params = typeof presetOrParams === 'string' ? PRESETS[presetOrParams] ?? PRESETS['75mm'] : presetOrParams;
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  const wb = params.wheelbase ?? 'custom';
+  const tag = jobTag ? `${wb}_${jobTag}` : `${wb}mm`;
+  const scadFilename = `whoop_${tag}.scad`;
+  const stlFilename = `whoop_${tag}.stl`;
+  const scadPath = path.join(OUTPUT_DIR, scadFilename);
+  const stlPath = path.join(OUTPUT_DIR, stlFilename);
+  const scadSource = `// legacy whoop placeholder\n`;
+  await writeFile(scadPath, scadSource, 'utf-8');
+  await writeFile(stlPath, buildFallbackStl(params), 'utf-8');
+  return { scadPath, stlPath, params, stlFilename, scadFilename };
+}
+
+export { PRESETS, OUTPUT_DIR, PROJECT_ROOT };

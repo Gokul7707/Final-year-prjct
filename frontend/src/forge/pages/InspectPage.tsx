@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { batteries, cameras, cameraHarnesses, canopies, droneFrames, escs, motors, propellers, whoops } from '@/shared/database';
+import type { DroneConfig } from '@/shared/types';
 import { useForgeStore } from '../store';
 import { ChassisViewer } from '../ChassisViewer';
 
@@ -14,6 +16,38 @@ export const InspectPage: React.FC = () => {
 
   const alt = job?.alternatives.find((a) => a.id === altId);
 
+  const droneConfig = useMemo<DroneConfig | undefined>(() => {
+    if (!alt) return undefined;
+
+    const frame = droneFrames.find((item) => item.id === alt.partIds.frameId) ?? droneFrames[1];
+    const motor = motors.find((item) => item.id === alt.partIds.motorId) ?? motors[4];
+    const battery = batteries.find((item) => item.id === alt.partIds.batteryId) ?? batteries[4];
+    const propeller = propellers.find((item) => item.id === alt.partIds.propellerId) ?? propellers[10];
+    const esc = escs.find((item) => item.id === alt.partIds.escId) ?? escs[4];
+    const camera = cameras.find((item) => item.id === alt.partIds.cameraId) ?? cameras[2];
+    const canopy = canopies.find((item) => item.id === alt.partIds.canopyId) ?? canopies[3];
+    const cameraHarness = cameraHarnesses.find((item) => item.id === 'harness-standard') ?? cameraHarnesses[1];
+    const whoop = whoops.find((item) => item.id === alt.partIds.whoopId) ?? whoops[1];
+
+    return {
+      frame,
+      motors: [motor],
+      battery,
+      propellers: [propeller],
+      escs: [esc],
+      camera,
+      canopy,
+      cameraHarness,
+      whoop,
+      frameColorId: 'frame-blue',
+      motorColorId: 'motor-gold',
+      propellerColorId: 'prop-cobalt',
+      batteryColorId: 'bat-aqua',
+      escColorId: 'esc-neon',
+      cameraHarnessColorId: 'harness-graphite',
+    };
+  }, [alt]);
+
   if (!job || !alt) {
     return (
       <div className="forge-empty">
@@ -27,11 +61,25 @@ export const InspectPage: React.FC = () => {
 
   return (
     <>
-      <h1 className="forge-h1">{alt.name}</h1>
-      <p className="forge-sub">
-        {alt.stlUrl ? 'Design generated' : 'CAD pending'} · {alt.chassisParams.wheelbaseMm}mm whoop ·{' '}
-        {alt.chassisParams.material} · {alt.chassisParams.manufacturing}
-      </p>
+      <section className="forge-card forge-card--elevated forge-hero-card forge-hero-card--brief" style={{ marginBottom: '1rem' }}>
+        <div>
+          <div className="forge-eyebrow">Inspector</div>
+          <h1 className="forge-h1">{alt.name}</h1>
+          <p className="forge-sub">
+            {alt.stlUrl ? 'Design generated' : 'CAD pending'} · {alt.chassisParams.wheelbaseMm}mm whoop ·{' '}
+            {alt.chassisParams.material} · {alt.chassisParams.manufacturing}
+          </p>
+          <div className="forge-pill-row">
+            <span className="forge-pill">Live assembly</span>
+            <span className="forge-pill">Configured parts</span>
+            <span className="forge-pill">Export ready</span>
+          </div>
+        </div>
+        <div className="forge-hero-visual forge-hero-visual--brief">
+          <div className="forge-orb" />
+          <div className="forge-ring" />
+        </div>
+      </section>
 
       <div className="forge-inspect">
         <div className="forge-stage">
@@ -46,9 +94,10 @@ export const InspectPage: React.FC = () => {
                 marginRight: 8,
               }}
             />
-            Drag to orbit · OpenSCAD whoop STL
+            Drag to orbit · configured drone assembly
           </div>
           <ChassisViewer
+            droneConfig={droneConfig}
             stlUrl={alt.stlUrl}
             wheelbaseMm={alt.chassisParams.wheelbaseMm}
             motorCount={alt.chassisParams.motorMounts}

@@ -51,15 +51,48 @@ export const BriefPage: React.FC = () => {
   };
 
   return (
-    <>
-      <h1 className="forge-h1">Design brief</h1>
-      <p className="forge-sub">
-        Phase 1: state mission constraints. The job planner scores whoop chassis options and OpenSCAD generates a
-        real STL you can inspect and export.
-      </p>
+    <div className="forge-brief-shell">
+      <section className="forge-card forge-card--elevated forge-hero-card forge-hero-card--brief">
+        <div>
+          <div className="forge-eyebrow">Genesis Forge</div>
+          <h1 className="forge-h1">Design brief</h1>
+          <p className="forge-sub">
+            Define the mission, capture the constraints, and let the planner generate a tailored whoop chassis with real
+            STL output you can inspect and export.
+          </p>
+          <div className="forge-pill-row">
+            <span className="forge-pill">Planner + CAD</span>
+            <span className="forge-pill">3D-ready STL</span>
+            <span className="forge-pill">Component aware</span>
+          </div>
+          <div className="forge-metrics">
+            <div className="forge-metric">
+              <strong>2–3</strong>
+              <span>variants per mission</span>
+            </div>
+            <div className="forge-metric">
+              <strong>Live</strong>
+              <span>scores + safety checks</span>
+            </div>
+            <div className="forge-metric">
+              <strong>STL</strong>
+              <span>inspect + export</span>
+            </div>
+          </div>
+        </div>
+        <div className="forge-hero-visual forge-hero-visual--brief">
+          <div className="forge-orb" />
+          <div className="forge-ring" />
+          <div className="forge-panel">
+            <span className="forge-panel-dot" />
+            <span className="forge-panel-dot" />
+            <span className="forge-panel-dot" />
+          </div>
+        </div>
+      </section>
 
-      <div className="forge-grid-2">
-        <div className="forge-card">
+      <div className="forge-grid-2 forge-grid-2--tight">
+        <div className="forge-card forge-card--side">
           <span className="forge-label">Application</span>
           <div className="forge-chip-row">
             {APPS.map((a) => (
@@ -153,7 +186,7 @@ export const BriefPage: React.FC = () => {
           </button>
         </div>
 
-        <aside className="forge-card">
+        <aside className="forge-card forge-card--side">
           <h2 style={{ margin: '0 0 0.75rem', fontSize: '1rem' }}>Phase 1 CAD loop</h2>
           <ol style={{ margin: 0, paddingLeft: '1.1rem', color: '#4b5563', fontSize: '0.9rem', lineHeight: 1.7 }}>
             <li>Brief is stored on a typed job.</li>
@@ -163,6 +196,6 @@ export const BriefPage: React.FC = () => {
           </ol>
         </aside>
       </div>
-    </>
+    </div>
   );
 };

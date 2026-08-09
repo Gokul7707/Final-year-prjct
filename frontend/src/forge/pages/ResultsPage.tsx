@@ -25,11 +25,25 @@ export const ResultsPage: React.FC = () => {
 
   return (
     <>
-      <h1 className="forge-h1">Design generated</h1>
-      <p className="forge-sub">
-        Whoop alternatives for <strong>{job.brief.application}</strong>. Specs from catalog + solver; STL from
-        OpenSCAD. Pick one to inspect.
-      </p>
+      <section className="forge-card forge-card--elevated forge-hero-card forge-hero-card--brief" style={{ marginBottom: '1rem' }}>
+        <div>
+          <div className="forge-eyebrow">Alternative shortlist</div>
+          <h1 className="forge-h1">Design generated</h1>
+          <p className="forge-sub">
+            Whoop alternatives for <strong>{job.brief.application}</strong>. Specs from catalog + solver; STL from
+            OpenSCAD. Pick one to inspect.
+          </p>
+          <div className="forge-pill-row">
+            <span className="forge-pill">Ranked by score</span>
+            <span className="forge-pill">Safety reviewed</span>
+            <span className="forge-pill">Ready to inspect</span>
+          </div>
+        </div>
+        <div className="forge-hero-visual forge-hero-visual--brief">
+          <div className="forge-orb" />
+          <div className="forge-ring" />
+        </div>
+      </section>
 
       <div className="forge-compare">
         {job.alternatives.map((alt, i) => {

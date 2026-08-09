@@ -45,7 +45,7 @@ export async function runDesignJob(jobId: string): Promise<void> {
 
     await setStep(job, 'plan', 'running');
     await sleep(300);
-    job.alternatives = planAlternatives(brief);
+    job.alternatives = await planAlternatives(brief);
     await saveJob(job);
     await setStep(
       job,

@@ -303,9 +303,13 @@ export const DroneVisualizer: React.FC<DroneVisualizerProps> = ({ config, isFlyi
 
     const numMotors = Math.max(config.frame.motorMounts || 0, config.motors.length || 0, 4);
     const frameSize = config.frame.armLength > 0 ? Math.min(config.frame.armLength / 80, 60) : 30;
-
-    // Central body
-    const bodyGeo = new THREE.BoxGeometry(frameSize * 0.8, frameSize * 0.3, frameSize * 0.8);
+    const frameType = config.frame.type;
+    const bodyLength = frameSize * (frameType === 'octo' ? 1.05 : frameType === 'hexa' ? 0.95 : frameType === 'tri' ? 0.72 : 0.82);
+    const bodyWidth = frameSize * (frameType === 'octo' ? 0.86 : frameType === 'hexa' ? 0.78 : frameType === 'tri' ? 0.7 : 0.68);
+    const bodyHeight = frameSize * (frameType === 'octo' ? 0.34 : frameType === 'hexa' ? 0.32 : frameType === 'tri' ? 0.28 : 0.3);
+    const bodyGeo = frameType === 'tri'
+      ? new THREE.CylinderGeometry(frameSize * 0.32, frameSize * 0.28, bodyHeight, 3)
+      : new THREE.BoxGeometry(bodyLength, bodyHeight, bodyWidth);
     const bodyMat = new THREE.MeshStandardMaterial({
       color: getColorHex(frameColorOptions, config.frameColorId, 0x1d4ed8),
       metalness: 0.9,
@@ -316,6 +320,14 @@ export const DroneVisualizer: React.FC<DroneVisualizerProps> = ({ config, isFlyi
     body.castShadow = true;
     droneGroup.add(body);
     bodyMaterialRef.current = bodyMat;
+
+    if (frameType === 'hexa' || frameType === 'octo') {
+      const stackGeo = new THREE.BoxGeometry(bodyLength * 0.35, bodyHeight * 0.9, bodyWidth * 0.5);
+      const stack = new THREE.Mesh(stackGeo, bodyMat);
+      stack.position.set(0, bodyHeight * 0.25, 0);
+      stack.castShadow = true;
+      droneGroup.add(stack);
+    }
 
     // Battery block (helps visualize battery color customization)
     const batteryGeo = new THREE.BoxGeometry(frameSize * 0.55, frameSize * 0.12, frameSize * 0.28);
@@ -485,10 +497,11 @@ export const DroneVisualizer: React.FC<DroneVisualizerProps> = ({ config, isFlyi
     const propellerColorHexInit = getColorHex(propellerColorOptions, config.propellerColorId, 0x2563eb);
     for (let i = 0; i < numMotors; i++) {
       const motorAngle = ((Math.PI * 2) / numMotors) * i;
-      const armLen = frameSize * 1.8;
+      const armLen = frameSize * (frameType === 'octo' ? 2.35 : frameType === 'hexa' ? 2.05 : frameType === 'tri' ? 1.65 : 1.8);
+      const armRadius = frameSize * (frameType === 'octo' ? 0.08 : frameType === 'hexa' ? 0.07 : frameType === 'tri' ? 0.06 : 0.06);
 
       // Arm
-      const armGeo = new THREE.CylinderGeometry(frameSize * 0.06, frameSize * 0.09, armLen, 6);
+      const armGeo = new THREE.CylinderGeometry(armRadius * 0.8, armRadius * 1.1, armLen, 6);
       const armMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(baseFrameColorHex).multiplyScalar(i % 2 === 0 ? 1 : 0.92).getHex(),
         metalness: 0.85,
@@ -507,10 +520,11 @@ export const DroneVisualizer: React.FC<DroneVisualizerProps> = ({ config, isFlyi
 
       // Motor mount group
       const motorGroup = new THREE.Group();
+      const motorOrbit = frameSize * (frameType === 'octo' ? 0.95 : frameType === 'hexa' ? 0.86 : frameType === 'tri' ? 0.7 : 0.78);
       motorGroup.position.set(
-        Math.cos(motorAngle) * (armLen + frameSize * 0.3),
+        Math.cos(motorAngle) * (armLen * 0.52 + motorOrbit),
         0,
-        Math.sin(motorAngle) * (armLen + frameSize * 0.3)
+        Math.sin(motorAngle) * (armLen * 0.52 + motorOrbit)
       );
       droneGroup.add(motorGroup);
 
@@ -613,7 +627,7 @@ export const DroneVisualizer: React.FC<DroneVisualizerProps> = ({ config, isFlyi
       spinGroup.add(guardGroup);
       whoopGuardsRef.current.push(guardGroup);
 
-      const bladeCount = 2;
+      const bladeCount = frameType === 'octo' ? 3 : frameType === 'hexa' ? 3 : 2;
       for (let b = 0; b < bladeCount; b++) {
         const bladeGeo = new THREE.BoxGeometry(frameSize * 2.2, frameSize * 0.04, frameSize * 0.22);
         const bladeMat = new THREE.MeshStandardMaterial({
@@ -725,13 +739,16 @@ export const DroneVisualizer: React.FC<DroneVisualizerProps> = ({ config, isFlyi
 
     // Landing gear
     const gearMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.6, roughness: 0.4 });
-    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
-      const legGeo = new THREE.CylinderGeometry(frameSize * 0.04, frameSize * 0.04, frameSize * 0.6, 8);
+    const landingPositions = frameType === 'tri'
+      ? [[0, -1], [-1, 1], [1, 1]]
+      : [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+    landingPositions.forEach(([sx, sz]) => {
+      const legGeo = new THREE.CylinderGeometry(frameSize * 0.04, frameSize * 0.04, frameSize * (frameType === 'octo' ? 0.72 : frameType === 'hexa' ? 0.66 : 0.6), 8);
       const leg = new THREE.Mesh(legGeo, gearMat);
       leg.position.set(sx * frameSize * 0.35, -frameSize * 0.45, sz * frameSize * 0.35);
       droneGroup.add(leg);
     });
-    const footGeo = new THREE.CylinderGeometry(frameSize * 0.04, frameSize * 0.04, frameSize * 0.9, 8);
+    const footGeo = new THREE.CylinderGeometry(frameSize * 0.04, frameSize * 0.04, frameSize * (frameType === 'octo' ? 1.05 : frameType === 'hexa' ? 0.95 : 0.9), 8);
     footGeo.rotateZ(Math.PI / 2);
     [-1, 1].forEach((sz) => {
       const foot = new THREE.Mesh(footGeo, gearMat);

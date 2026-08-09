@@ -1,3 +1,5 @@
+import 'dotenv/config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
   droneFrames,
   motors,
@@ -21,6 +23,18 @@ interface Candidate {
   parts: DesignPartIds;
   chassis: Omit<ChassisParams, 'material' | 'manufacturing'>;
 }
+
+interface AiVariantSuggestion {
+  name: string;
+  tagline: string;
+  rationale: string;
+  parts: Partial<DesignPartIds>;
+}
+
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const model = genAI
+  ? genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-pro' })
+  : null;
 
 const DEFAULTS = {
   cameraId: 'camera-fpv-1',
@@ -48,6 +62,114 @@ function candidate(
       ...parts,
     },
   };
+}
+
+function withVariant(parts: Partial<DesignPartIds>, variant: number, brief: DesignBrief): DesignPartIds {
+  const base = {
+    frameId: 'frame-quad-250',
+    motorId: 'motor-2306-1750kv',
+    batteryId: 'battery-1400-6s',
+    propellerId: 'prop-5045',
+    escId: 'esc-60a',
+    ...DEFAULTS,
+  } as DesignPartIds;
+
+  const variantParts = { ...base, ...parts } as DesignPartIds;
+  const wantsHeavyLift = brief.payloadG > 500 || brief.flightTimeMin >= 10 || brief.budgetInr > 80000;
+  const wantsLightAndFast = brief.payloadG <= 120 || brief.flightTimeMin <= 3 || brief.notes?.toLowerCase().includes('racing');
+  const wantsCamera = brief.notes?.toLowerCase().includes('camera') || brief.payloadG > 250;
+  const wantsQuiet = brief.notes?.toLowerCase().includes('quiet') || brief.notes?.toLowerCase().includes('duct');
+
+  if (variant === 1) {
+    if (wantsHeavyLift) {
+      variantParts.frameId = 'frame-hexa-600';
+      variantParts.motorId = 'motor-5008-340kv';
+      variantParts.batteryId = 'battery-10000-6s';
+      variantParts.propellerId = 'prop-12x50';
+      variantParts.escId = 'esc-80a';
+      variantParts.cameraId = wantsCamera ? 'camera-4k' : 'camera-none';
+      variantParts.canopyId = wantsQuiet ? 'canopy-carbon' : 'canopy-clear';
+      variantParts.whoopId = wantsQuiet ? 'whoop-ducted' : 'whoop-none';
+    } else if (wantsLightAndFast) {
+      variantParts.frameId = 'frame-quad-250';
+      variantParts.motorId = 'motor-2204-2300kv';
+      variantParts.batteryId = 'battery-1300-3s';
+      variantParts.propellerId = 'prop-5045';
+      variantParts.escId = 'esc-40a';
+      variantParts.cameraId = 'camera-fpv-1';
+      variantParts.canopyId = 'canopy-none';
+      variantParts.whoopId = 'whoop-none';
+    } else {
+      variantParts.frameId = 'frame-quad-450';
+      variantParts.motorId = 'motor-2312-1000kv';
+      variantParts.batteryId = 'battery-4250-6s';
+      variantParts.propellerId = 'prop-8x45';
+      variantParts.escId = 'esc-40a';
+      variantParts.cameraId = wantsCamera ? 'camera-4k' : 'camera-fpv-1';
+      variantParts.canopyId = wantsQuiet ? 'canopy-smoked' : 'canopy-clear';
+      variantParts.whoopId = 'whoop-none';
+    }
+  } else if (variant === 2) {
+    if (wantsHeavyLift) {
+      variantParts.frameId = 'frame-octo-800';
+      variantParts.motorId = 'motor-5008-340kv';
+      variantParts.batteryId = 'battery-10000-6s';
+      variantParts.propellerId = 'prop-14inch';
+      variantParts.escId = 'esc-80a';
+      variantParts.cameraId = 'camera-4k';
+      variantParts.canopyId = 'canopy-carbon';
+      variantParts.whoopId = 'whoop-whoop';
+    } else if (wantsLightAndFast) {
+      variantParts.frameId = 'frame-tri-330';
+      variantParts.motorId = 'motor-2204-2300kv';
+      variantParts.batteryId = 'battery-1500-4s';
+      variantParts.propellerId = 'prop-5045';
+      variantParts.escId = 'esc-40a';
+      variantParts.cameraId = 'camera-fpv-1';
+      variantParts.canopyId = 'canopy-clear';
+      variantParts.whoopId = 'whoop-none';
+    } else {
+      variantParts.frameId = 'frame-hexa-600';
+      variantParts.motorId = 'motor-4006-340kv';
+      variantParts.batteryId = 'battery-6750-6s';
+      variantParts.propellerId = 'prop-10x55';
+      variantParts.escId = 'esc-60a';
+      variantParts.cameraId = wantsCamera ? 'camera-4k' : 'camera-none';
+      variantParts.canopyId = wantsQuiet ? 'canopy-smoked' : 'canopy-clear';
+      variantParts.whoopId = wantsQuiet ? 'whoop-ducted' : 'whoop-none';
+    }
+  } else if (variant === 3) {
+    if (wantsHeavyLift) {
+      variantParts.frameId = 'frame-hexa-600';
+      variantParts.motorId = 'motor-4006-340kv';
+      variantParts.batteryId = 'battery-6750-6s';
+      variantParts.propellerId = 'prop-12x50';
+      variantParts.escId = 'esc-80a';
+      variantParts.cameraId = 'camera-none';
+      variantParts.canopyId = 'canopy-carbon';
+      variantParts.whoopId = 'whoop-ducted';
+    } else if (wantsLightAndFast) {
+      variantParts.frameId = 'frame-quad-450';
+      variantParts.motorId = 'motor-2312-1000kv';
+      variantParts.batteryId = 'battery-4250-6s';
+      variantParts.propellerId = 'prop-8x45';
+      variantParts.escId = 'esc-40a';
+      variantParts.cameraId = 'camera-4k';
+      variantParts.canopyId = 'canopy-clear';
+      variantParts.whoopId = 'whoop-none';
+    } else {
+      variantParts.frameId = 'frame-octo-800';
+      variantParts.motorId = 'motor-5008-340kv';
+      variantParts.batteryId = 'battery-10000-6s';
+      variantParts.propellerId = 'prop-14inch';
+      variantParts.escId = 'esc-80a';
+      variantParts.cameraId = 'camera-4k';
+      variantParts.canopyId = 'canopy-smoked';
+      variantParts.whoopId = 'whoop-whoop';
+    }
+  }
+
+  return variantParts;
 }
 
 /** Phase 1 CAD params are whoop-scale (OpenSCAD whoop.scad). */
@@ -163,11 +285,53 @@ const CANDIDATES: Record<DesignBrief['application'], Candidate[]> = {
 };
 
 function buildConfig(parts: DesignPartIds): DroneConfig | null {
-  const frame = droneFrames.find((f) => f.id === parts.frameId);
-  const motor = motors.find((m) => m.id === parts.motorId);
-  const battery = batteries.find((b) => b.id === parts.batteryId);
-  const prop = propellers.find((p) => p.id === parts.propellerId);
-  const esc = escs.find((e) => e.id === parts.escId);
+  const frame = droneFrames.find((f) => f.id === parts.frameId) ?? droneFrames[1];
+  const motor = motors.find((m) => m.id === parts.motorId) ?? motors[1];
+  const battery = batteries.find((b) => b.id === parts.batteryId) ?? batteries[1];
+  const prop = propellers.find((p) => p.id === parts.propellerId) ?? propellers[0];
+  const esc = escs.find((e) => e.id === parts.escId) ?? escs[1];
+  const camera = {
+    id: parts.cameraId,
+    name: parts.cameraId.includes('4k') ? 'HD Camera' : parts.cameraId.includes('none') ? 'No Camera' : 'FPV Camera',
+    type: parts.cameraId.includes('4k') ? 'HD' as const : parts.cameraId.includes('none') ? 'NONE' as const : 'FPV' as const,
+    weight: parts.cameraId.includes('none') ? 0 : parts.cameraId.includes('4k') ? 25 : 15,
+    fov: parts.cameraId.includes('none') ? 0 : 145,
+    price: parts.cameraId.includes('4k') ? 15000 : parts.cameraId.includes('none') ? 0 : 8000,
+    tags: [],
+  };
+  const canopy = parts.canopyId.includes('none') ? undefined : {
+    id: parts.canopyId,
+    name: parts.canopyId.includes('carbon') ? 'Carbon Canopy' : 'Clear Canopy',
+    weight: 40,
+    price: 2500,
+    style: parts.canopyId.includes('carbon') ? 'CARBON' as const : 'CLEAR' as const,
+    colorHex: parts.canopyId.includes('carbon') ? 0x111827 : 0x60a5fa,
+    opacity: parts.canopyId.includes('carbon') ? 0.85 : 0.7,
+  };
+  const cameraHarness = {
+    id: 'harness-standard',
+    name: 'Standard Harness',
+    weight: 18,
+    price: 2200,
+    style: 'STANDARD' as const,
+  };
+  const whoop = parts.whoopId.includes('ducted') ? {
+    id: parts.whoopId,
+    name: 'Ducted Whoop Guard',
+    weight: 22,
+    price: 1800,
+    style: 'DUCTED' as const,
+    colorHex: 0x60a5fa,
+    opacity: 0.8,
+  } : parts.whoopId.includes('whoop') ? {
+    id: parts.whoopId,
+    name: 'Whoop Guard',
+    weight: 16,
+    price: 1200,
+    style: 'WHOOP' as const,
+    colorHex: 0x4f46e5,
+    opacity: 0.7,
+  } : undefined;
   if (!frame || !motor || !battery || !prop || !esc) return null;
   const n = Math.max(1, frame.motorMounts);
   return {
@@ -176,15 +340,16 @@ function buildConfig(parts: DesignPartIds): DroneConfig | null {
     battery,
     propellers: Array(n).fill(prop),
     escs: Array(n).fill(esc),
-    camera: {
-      id: parts.cameraId,
-      name: parts.cameraId.includes('4k') ? 'HD Camera' : parts.cameraId.includes('none') ? 'No Camera' : 'FPV Camera',
-      type: parts.cameraId.includes('4k') ? 'HD' : parts.cameraId.includes('none') ? 'NONE' : 'FPV',
-      weight: parts.cameraId.includes('none') ? 0 : parts.cameraId.includes('4k') ? 25 : 15,
-      fov: parts.cameraId.includes('none') ? 0 : 145,
-      price: parts.cameraId.includes('4k') ? 15000 : parts.cameraId.includes('none') ? 0 : 8000,
-      tags: [],
-    },
+    camera,
+    canopy,
+    cameraHarness,
+    whoop,
+    frameColorId: 'frame-blue',
+    motorColorId: 'motor-gold',
+    propellerColorId: 'prop-cobalt',
+    batteryColorId: 'bat-aqua',
+    escColorId: 'esc-neon',
+    cameraHarnessColorId: 'harness-graphite',
   };
 }
 
@@ -234,20 +399,61 @@ function safetyChecks(config: DroneConfig): DesignAlternative['safety'] {
   return checks;
 }
 
-/** Plan 2–3 alternatives from the brief (catalog + physics). CAD fills stlUrl later. */
-export function planAlternatives(brief: DesignBrief): DesignAlternative[] {
-  const list = CANDIDATES[brief.application] || CANDIDATES.freestyle;
+function extractAiResponseText(result: any): string {
+  if (result?.response && typeof result.response.text === 'function') {
+    return result.response.text();
+  }
+  if (result && typeof result.text === 'function') {
+    return result.text();
+  }
+  return String(result ?? '');
+}
 
-  const alts = list.map((c, idx) => {
-    const config = buildConfig(c.parts);
+async function fetchAiAlternatives(brief: DesignBrief): Promise<AiVariantSuggestion[] | null> {
+  if (!model) return null;
+  try {
+    const prompt = `You are the Forge CAD design planner. Create 3 drone design variants for the brief below. Return valid JSON only, with an array called variants. Each variant must include: name, tagline, rationale, and parts with frameId, motorId, batteryId, propellerId, escId, cameraId, canopyId, whoopId. Use only IDs from the existing catalog. The brief: ${JSON.stringify(brief)}`;
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
+    });
+    const responseText = extractAiResponseText(result);
+    const match = responseText.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]);
+    const variants = Array.isArray(parsed.variants) ? parsed.variants : null;
+    return variants as AiVariantSuggestion[] | null;
+  } catch (error) {
+    console.warn('AI planning fallback activated:', error);
+    return null;
+  }
+}
+
+/** Plan 2–3 alternatives from the brief (catalog + physics + optional Gemini guidance). CAD fills stlUrl later. */
+export async function planAlternatives(brief: DesignBrief): Promise<DesignAlternative[]> {
+  const list = CANDIDATES[brief.application] || CANDIDATES.freestyle;
+  const aiSuggestions = await fetchAiAlternatives(brief);
+
+  const alts = await Promise.all(list.map(async (c, idx) => {
+    const variantParts = withVariant(c.parts, idx + 1, brief);
+    const aiVariant = aiSuggestions?.[idx];
+    const mergedParts = {
+      ...variantParts,
+      ...(aiVariant?.parts || {}),
+    } as DesignPartIds;
+    const config = buildConfig(mergedParts);
     if (!config) {
       return {
         id: `alt-${idx + 1}`,
-        name: c.name,
-        tagline: c.tagline,
+        name: aiVariant?.name || c.name,
+        tagline: aiVariant?.tagline || c.tagline,
         score: 10,
         chassisParams: { ...c.chassis, material: brief.material, manufacturing: brief.manufacturing },
-        partIds: c.parts,
+        partIds: mergedParts,
         bom: [],
         specs: { totalWeight: 0, maxThrust: 0, thrustToWeight: 0, estimatedFlightTime: 0, maxSpeed: 0, buildCost: 0 },
         safety: [{ severity: 'fail', title: 'Catalog miss', detail: 'Part IDs missing from backend catalog.' }],
@@ -296,20 +502,23 @@ export function planAlternatives(brief: DesignBrief): DesignAlternative[] {
       }
     }
 
-    // Prefer 3D-print wall thickness for print manufacturing
     if (brief.manufacturing === '3d-print' && c.chassis.wallThickness >= 1.5) {
       reasons.push('Wall thickness suitable for FDM print.');
+    }
+
+    if (aiVariant?.rationale) {
+      reasons.push(`AI rationale: ${aiVariant.rationale}`);
     }
 
     score = Math.round(Math.max(5, Math.min(99, score)));
 
     return {
       id: `alt-${idx + 1}`,
-      name: c.name,
-      tagline: c.tagline,
+      name: aiVariant?.name || c.name,
+      tagline: aiVariant?.tagline || c.tagline,
       score,
       chassisParams: { ...c.chassis, material: brief.material, manufacturing: brief.manufacturing },
-      partIds: c.parts,
+      partIds: mergedParts,
       bom,
       specs,
       safety,
@@ -317,7 +526,7 @@ export function planAlternatives(brief: DesignBrief): DesignAlternative[] {
       stlUrl: null,
       scadUrl: null,
     } satisfies DesignAlternative;
-  });
+  }));
 
   return alts.sort((a, b) => b.score - a.score);
 }

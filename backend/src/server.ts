@@ -2,6 +2,7 @@ import express, { Express, NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { droneFrames, motors, batteries, propellers, escs } from './shared/database.js';
 import { calculateDroneSpecs, generateBOM } from './shared/calculator.js';
@@ -12,6 +13,9 @@ import { runDesignJob } from './jobs/jobRunner.js';
 import type { DesignBrief } from './types/genesis.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
@@ -45,14 +49,29 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Initialize Gemini client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+const genAI = hasGeminiKey ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string) : null;
 const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
-const model = genAI.getGenerativeModel({ model: modelName });
-console.log(`Using Gemini model: ${modelName}`);
+const model = genAI?.getGenerativeModel({ model: modelName }) ?? null;
+if (hasGeminiKey) {
+  console.log(`Using Gemini model: ${modelName}`);
+} else {
+  console.warn('GEMINI_API_KEY is not set. AI endpoints will return an error.');
+}
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'DroneForge API is running' });
+});
+
+app.get('/api/server-debug', (_req: Request, res: Response) => {
+  const sourcePath = typeof __filename === 'string' ? __filename : fileURLToPath(import.meta.url);
+  res.json({
+    status: 'ok',
+    source: sourcePath,
+    envPort: process.env.PORT || 'unset',
+    modelName,
+  });
 });
 
 // Get all available parts
@@ -125,8 +144,7 @@ Current drone config: ${JSON.stringify(droneConfig, null, 2)}`;
       conversationHistory += `\n\n${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`;
     });
 
-    const result = await model.generateContent(conversationHistory);
-    const aiResponse = result.response.text();
+    const aiResponse = await generateAiText(conversationHistory);
 
     res.json({
       message: aiResponse,
@@ -134,14 +152,141 @@ Current drone config: ${JSON.stringify(droneConfig, null, 2)}`;
     });
   } catch (error) {
     console.error('Chat error:', error);
-    res.status(500).json({ error: 'Failed to process chat request' });
+    res.status(500).json({ error: 'Failed to process chat request', detail: error?.message ?? String(error) });
   }
 });
+
+async function generateAiText(prompt: string): Promise<string> {
+  if (!model) {
+    throw new Error('AI model unavailable. Set GEMINI_API_KEY in backend environment.');
+  }
+
+  const result = await model.generateContent({
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }],
+      },
+    ],
+  });
+
+  return extractResponseText(result);
+}
+
+function extractResponseText(result: any): string {
+  try {
+    const response = result?.response ?? result;
+
+    if (response && typeof response.text === 'function') {
+      return response.text();
+    }
+
+    if (response?.candidates?.length) {
+      return response.candidates
+        .flatMap((candidate: any) => candidate?.content?.parts || [])
+        .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+        .filter(Boolean)
+        .join(' ');
+    }
+
+    return String(response ?? '');
+  } catch (innerError) {
+    console.warn('AI response extraction failed:', innerError);
+    return `<<TEXT_EXTRACTION_ERROR: ${innerError?.message ?? String(innerError)}>>`;
+  }
+}
+
+type AiBuildRecommendations = {
+  frame?: string;
+  motors?: string[];
+  battery?: string;
+  propellers?: string[];
+  escs?: string[];
+};
+
+type AiBuildConfig = {
+  analysis: string;
+  recommendations: AiBuildRecommendations;
+  reasoning?: string;
+};
+
+function inferAiBuildFromPrompt(prompt: string): AiBuildConfig {
+  const lower = prompt.toLowerCase();
+  const recommendations: AiBuildRecommendations = {
+    frame: 'frame-quad-250',
+    motors: ['motor-2204-2300kv'],
+    battery: 'battery-1400-6s',
+    propellers: ['prop-5045'],
+    escs: ['esc-40a'],
+  };
+  const analysisParts: string[] = [];
+
+  if (lower.includes('heavy') || lower.includes('cargo') || lower.includes('lift')) {
+    recommendations.frame = 'frame-hexa-600';
+    recommendations.motors = ['motor-5008-340kv'];
+    recommendations.battery = 'battery-10000-6s';
+    recommendations.propellers = ['prop-12x50'];
+    recommendations.escs = ['esc-80a'];
+    analysisParts.push('Selected a heavy-lift setup for cargo and endurance requirements.');
+  } else if (lower.includes('industrial') || lower.includes('inspect') || lower.includes('octo')) {
+    recommendations.frame = 'frame-octo-800';
+    recommendations.motors = ['motor-5008-340kv'];
+    recommendations.battery = 'battery-10000-6s';
+    recommendations.propellers = ['prop-12x50'];
+    recommendations.escs = ['esc-80a'];
+    analysisParts.push('Chose an industrial octocopter configuration for stability and payload.');
+  } else if (lower.includes('photo') || lower.includes('cinema') || lower.includes('film')) {
+    recommendations.frame = 'frame-quad-450';
+    recommendations.motors = ['motor-2312-1000kv'];
+    recommendations.battery = 'battery-4250-6s';
+    recommendations.propellers = ['prop-10x55'];
+    recommendations.escs = ['esc-60a'];
+    analysisParts.push('Configured a stable photography quad with enough battery capacity for longer flights.');
+  } else if (lower.includes('whoop') || lower.includes('indoor') || lower.includes('quiet')) {
+    recommendations.frame = 'frame-quad-250';
+    recommendations.motors = ['motor-2204-2300kv'];
+    recommendations.battery = 'battery-1300-3s';
+    recommendations.propellers = ['prop-5045'];
+    recommendations.escs = ['esc-40a'];
+    analysisParts.push('Used a compact whoop-style configuration for indoor and quiet flight.');
+  } else if (lower.includes('race') || lower.includes('freestyle') || lower.includes('fpv')) {
+    recommendations.frame = 'frame-quad-250';
+    recommendations.motors = ['motor-2204-2300kv'];
+    recommendations.battery = 'battery-1400-6s';
+    recommendations.propellers = ['prop-5045'];
+    recommendations.escs = ['esc-40a'];
+    analysisParts.push('Selected a racing configuration optimized for agility and speed.');
+  }
+
+  if (lower.includes('long') || lower.includes('endurance') || lower.includes('hour')) {
+    recommendations.battery = 'battery-4250-6s';
+    analysisParts.push('Increased battery capacity for longer flight time.');
+  }
+  if (lower.includes('6s')) {
+    recommendations.battery = 'battery-4250-6s';
+    analysisParts.push('Picked a 6S battery pack for higher power and efficiency.');
+  }
+  if (lower.includes('no camera') || lower.includes('without camera')) {
+    analysisParts.push('Omitted a camera for a lighter, more efficient build.');
+  }
+  if (analysisParts.length === 0) {
+    analysisParts.push('Defaulted to a balanced quadcopter build based on common FPV and hobby drone needs.');
+  }
+
+  return {
+    analysis: analysisParts.join(' '),
+    recommendations,
+    reasoning: 'Local fallback configuration used because AI service or parsing was unavailable.',
+  };
+}
 
 // AI Drone builder endpoint - full build from prompt
 app.post('/api/ai-build-drone', async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body;
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ success: false, error: 'Prompt is required' });
+    }
 
     const systemPrompt = `You are an expert drone builder AI. Given a user's description of what drone they want to build, suggest a complete drone configuration.
 
@@ -169,21 +314,54 @@ IMPORTANT: Always respond with a JSON object containing your recommendations lik
 }`;
 
     const userPrompt = `${systemPrompt}\n\nBuild me a drone with these specs: ${prompt}`;
-    const result = await model.generateContent(userPrompt);
-    const responseText = result.response.text();
+    let responseText = '';
+    let droneConfig: any = null;
 
-    // Parse JSON response
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const droneConfig = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    if (!model) {
+      console.warn('AI build drone skipped: GEMINI_API_KEY is not configured. Falling back to local inference.');
+    } else {
+      try {
+        responseText = await generateAiText(userPrompt);
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            droneConfig = JSON.parse(jsonMatch[0]);
+          } catch (parseError) {
+            console.warn('Failed to parse AI build JSON output:', parseError);
+          }
+        }
+      } catch (aiError) {
+        console.error('AI build drone error:', aiError?.message ?? aiError, {
+          stack: aiError?.stack ?? null,
+          response: aiError?.response ?? null,
+        });
+      }
+    }
+
+    if (!droneConfig) {
+      const fallback = inferAiBuildFromPrompt(prompt);
+      return res.json({
+        success: false,
+        config: fallback,
+        rawResponse: responseText || 'AI endpoint was unavailable or returned invalid JSON.',
+      });
+    }
 
     res.json({
       success: !!droneConfig,
       config: droneConfig,
       rawResponse: responseText,
     });
-  } catch (error) {
-    console.error('AI build drone error:', error);
-    res.status(500).json({ error: 'Failed to build drone configuration' });
+  } catch (error: any) {
+    console.error('AI build drone error:', error?.message ?? error, {
+      stack: error?.stack,
+      response: error?.response ?? null,
+    });
+    res.status(500).json({
+      error: 'Failed to build drone configuration',
+      detail: error?.message ?? String(error),
+      response: error?.response ?? null,
+    });
   }
 });
 
