@@ -111,9 +111,10 @@ export async function generateWhoopChassis(
 
   await mkdir(OUTPUT_DIR, { recursive: true });
 
-  const tag = `${params.wheelbase ?? 'custom'}${jobTag ? `_${jobTag}` : ''}`;
-  const scadFilename = `whoop_${tag}mm.scad`;
-  const stlFilename = `whoop_${tag}mm.stl`;
+  const wb = params.wheelbase ?? 'custom';
+  const tag = jobTag ? `${wb}_${jobTag}` : `${wb}mm`;
+  const scadFilename = `whoop_${tag}.scad`;
+  const stlFilename = `whoop_${tag}.stl`;
   const scadPath = path.join(OUTPUT_DIR, scadFilename);
   const stlPath = path.join(OUTPUT_DIR, stlFilename);
 

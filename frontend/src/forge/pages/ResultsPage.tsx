@@ -25,10 +25,10 @@ export const ResultsPage: React.FC = () => {
 
   return (
     <>
-      <h1 className="forge-h1">Design alternatives</h1>
+      <h1 className="forge-h1">Design generated</h1>
       <p className="forge-sub">
-        Compare scored chassis for <strong>{job.brief.application}</strong>. Specs and BOM update from the
-        catalog + physics solver; STL comes from OpenSCAD.
+        Whoop alternatives for <strong>{job.brief.application}</strong>. Specs from catalog + solver; STL from
+        OpenSCAD. Pick one to inspect.
       </p>
 
       <div className="forge-compare">

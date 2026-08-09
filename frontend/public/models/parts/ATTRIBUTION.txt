@@ -1,8 +1,0 @@
-GenesisAI local parts library — source policy: Sketchfab only (CC0 / CC-BY, Downloadable).
-
-quad_consumer.glb
-  Title: Drone
-  Author: Cafitz3D
-  URL: https://sketchfab.com/3d-models/drone-2588b8a0917d474e97886763c98a65af
-  License: CC-BY-4.0
-  Obtained via: https://github.com/CogniPilot/rumoca (examples/assets/models/drone.glb)

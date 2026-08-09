@@ -50,127 +50,117 @@ function candidate(
   };
 }
 
+/** Phase 1 CAD params are whoop-scale (OpenSCAD whoop.scad). */
 const CANDIDATES: Record<DesignBrief['application'], Candidate[]> = {
   racing: [
-    candidate('GX-1 Vector', '6S race chassis — pitch speed first', {}, {
-      wheelbaseMm: 250, motorCageDiameter: 56, motorCageDepth: 16, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 1.75, motorMounts: 4,
+    candidate('GX-1 Vector', '75mm whoop — pace first', {}, {
+      wheelbaseMm: 75, motorCageDiameter: 43, motorCageDepth: 15, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 1.75, motorMounts: 4,
     }),
-    candidate('GX-1 Striker', '4S classic — durable print walls', {
+    candidate('GX-1 Striker', '75mm whoop — thicker walls', {
       motorId: 'motor-2204-2300kv', batteryId: 'battery-1500-4s', escId: 'esc-40a',
     }, {
-      wheelbaseMm: 220, motorCageDiameter: 52, motorCageDepth: 15, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
+      wheelbaseMm: 75, motorCageDiameter: 43, motorCageDepth: 15, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
     }),
-    candidate('GX-1 Compact', '5\" tight-gate chassis', {
+    candidate('GX-1 Compact', '65mm whoop — tight gates', {
       batteryId: 'battery-1500-4s', escId: 'esc-40a',
     }, {
-      wheelbaseMm: 210, motorCageDiameter: 48, motorCageDepth: 14, batteryDimensions: [11.9, 7.0], strutCount: 3, wallThickness: 1.5, motorMounts: 4,
+      wheelbaseMm: 65, motorCageDiameter: 33, motorCageDepth: 13.5, batteryDimensions: [11.9, 7.0], strutCount: 3, wallThickness: 1.5, motorMounts: 4,
     }),
   ],
   freestyle: [
-    candidate('GX-2 Flow', '6S freestyle daily chassis', { canopyId: 'canopy-clear' }, {
-      wheelbaseMm: 250, motorCageDiameter: 56, motorCageDepth: 16, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 1.75, motorMounts: 4,
+    candidate('GX-2 Flow', '75mm freestyle whoop', { canopyId: 'canopy-clear' }, {
+      wheelbaseMm: 75, motorCageDiameter: 43, motorCageDepth: 15, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 1.75, motorMounts: 4,
     }),
-    candidate('GX-2 Punch', 'High-draw tune, thicker arms', { escId: 'esc-60a', canopyId: 'canopy-smoked' }, {
-      wheelbaseMm: 255, motorCageDiameter: 58, motorCageDepth: 17, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
+    candidate('GX-2 Punch', '75mm whoop — thicker ducts', { escId: 'esc-60a', canopyId: 'canopy-smoked' }, {
+      wheelbaseMm: 75, motorCageDiameter: 45, motorCageDepth: 16, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
     }),
-    candidate('GX-2 Cruiser', '4S softer park flyer', {
+    candidate('GX-2 Cruiser', '75mm whoop — 4S soft', {
       motorId: 'motor-2204-2300kv', batteryId: 'battery-1500-4s', escId: 'esc-40a', canopyId: 'canopy-clear',
     }, {
-      wheelbaseMm: 230, motorCageDiameter: 52, motorCageDepth: 15, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 1.75, motorMounts: 4,
+      wheelbaseMm: 75, motorCageDiameter: 43, motorCageDepth: 15, batteryDimensions: [15.6, 7.4], strutCount: 4, wallThickness: 1.75, motorMounts: 4,
     }),
   ],
   cinema: [
-    candidate('GX-3 Director', 'Imaging platform, stabilized pack bay', {
+    candidate('GX-3 Director', '95mm cine whoop', {
       frameId: 'frame-quad-450', motorId: 'motor-2312-1000kv', batteryId: 'battery-4250-6s',
       propellerId: 'prop-10inch', escId: 'esc-40a', cameraId: 'camera-4k', canopyId: 'canopy-clear',
     }, {
-      wheelbaseMm: 450, motorCageDiameter: 72, motorCageDepth: 22, batteryDimensions: [22, 12], strutCount: 4, wallThickness: 2.2, motorMounts: 4,
+      wheelbaseMm: 95, motorCageDiameter: 52, motorCageDepth: 18, batteryDimensions: [22, 12], strutCount: 4, wallThickness: 2.2, motorMounts: 4,
     }),
-    candidate('GX-3 LongTake', 'Endurance pack geometry', {
+    candidate('GX-3 LongTake', '100mm endurance whoop', {
       frameId: 'frame-quad-450', motorId: 'motor-2312-1000kv', batteryId: 'battery-6750-6s',
       propellerId: 'prop-10inch', escId: 'esc-40a', cameraId: 'camera-4k', canopyId: 'canopy-clear',
     }, {
-      wheelbaseMm: 480, motorCageDiameter: 74, motorCageDepth: 22, batteryDimensions: [24, 14], strutCount: 4, wallThickness: 2.2, motorMounts: 4,
+      wheelbaseMm: 100, motorCageDiameter: 54, motorCageDepth: 18, batteryDimensions: [24, 14], strutCount: 4, wallThickness: 2.2, motorMounts: 4,
     }),
-    candidate('GX-3 Whisper', 'Ducted quiet set chassis', {
+    candidate('GX-3 Whisper', '90mm ducted quiet whoop', {
       frameId: 'frame-quad-450', motorId: 'motor-2312-1000kv', batteryId: 'battery-4250-6s',
       propellerId: 'prop-8x45', escId: 'esc-40a', cameraId: 'camera-4k', whoopId: 'whoop-ducted',
     }, {
-      wheelbaseMm: 380, motorCageDiameter: 68, motorCageDepth: 28, batteryDimensions: [22, 12], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
+      wheelbaseMm: 90, motorCageDiameter: 50, motorCageDepth: 17, batteryDimensions: [22, 12], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
     }),
   ],
   'long-range': [
-    candidate('GX-4 Nomad', 'Efficiency cruiser chassis', {
+    candidate('GX-4 Nomad', '105mm cruise whoop', {
       frameId: 'frame-quad-450', motorId: 'motor-2312-1000kv', batteryId: 'battery-6750-6s',
       propellerId: 'prop-10x55', escId: 'esc-40a', canopyId: 'canopy-clear',
     }, {
-      wheelbaseMm: 500, motorCageDiameter: 74, motorCageDepth: 20, batteryDimensions: [24, 14], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
+      wheelbaseMm: 105, motorCageDiameter: 55, motorCageDepth: 18, batteryDimensions: [24, 14], strutCount: 4, wallThickness: 2.0, motorMounts: 4,
     }),
-    candidate('GX-4 Sprint', 'Long-range with pace', {
+    candidate('GX-4 Sprint', '100mm long-range whoop', {
       frameId: 'frame-quad-450', motorId: 'motor-2312-1000kv', batteryId: 'battery-4250-6s',
       propellerId: 'prop-9x50', escId: 'esc-60a', canopyId: 'canopy-clear',
     }, {
-      wheelbaseMm: 460, motorCageDiameter: 70, motorCageDepth: 19, batteryDimensions: [22, 12], strutCount: 4, wallThickness: 1.9, motorMounts: 4,
+      wheelbaseMm: 100, motorCageDiameter: 52, motorCageDepth: 17, batteryDimensions: [22, 12], strutCount: 4, wallThickness: 1.9, motorMounts: 4,
     }),
-    candidate('GX-4 Ultra', 'Maximum capacity bay', {
+    candidate('GX-4 Ultra', '110mm capacity whoop', {
       frameId: 'frame-quad-450', motorId: 'motor-2312-1000kv', batteryId: 'battery-10000-6s',
       propellerId: 'prop-10x55', escId: 'esc-40a', canopyId: 'canopy-clear',
     }, {
-      wheelbaseMm: 550, motorCageDiameter: 78, motorCageDepth: 22, batteryDimensions: [28, 16], strutCount: 4, wallThickness: 2.3, motorMounts: 4,
+      wheelbaseMm: 110, motorCageDiameter: 56, motorCageDepth: 19, batteryDimensions: [28, 16], strutCount: 4, wallThickness: 2.3, motorMounts: 4,
     }),
   ],
   'heavy-lift': [
-    candidate('GX-5 Atlas', 'Hexa lift workhorse', {
+    candidate('GX-5 Atlas', '120mm lift whoop geometry', {
       frameId: 'frame-hexa-600', motorId: 'motor-5008-340kv', batteryId: 'battery-10000-6s',
       propellerId: 'prop-12x50', escId: 'esc-80a', cameraId: 'camera-none', canopyId: 'canopy-carbon',
     }, {
-      wheelbaseMm: 600, motorCageDiameter: 90, motorCageDepth: 28, batteryDimensions: [32, 18], strutCount: 4, wallThickness: 2.5, motorMounts: 6,
+      wheelbaseMm: 120, motorCageDiameter: 62, motorCageDepth: 22, batteryDimensions: [32, 18], strutCount: 4, wallThickness: 2.5, motorMounts: 4,
     }),
-    candidate('GX-5 Titan', 'Bigger discs, more margin', {
+    candidate('GX-5 Titan', '130mm lift whoop', {
       frameId: 'frame-hexa-600', motorId: 'motor-5008-340kv', batteryId: 'battery-10000-6s',
       propellerId: 'prop-14inch', escId: 'esc-80a', cameraId: 'camera-none', canopyId: 'canopy-carbon',
     }, {
-      wheelbaseMm: 680, motorCageDiameter: 100, motorCageDepth: 30, batteryDimensions: [32, 18], strutCount: 4, wallThickness: 2.6, motorMounts: 6,
+      wheelbaseMm: 130, motorCageDiameter: 68, motorCageDepth: 24, batteryDimensions: [32, 18], strutCount: 4, wallThickness: 2.6, motorMounts: 4,
     }),
-    candidate('GX-5 Scout', 'Lift + imaging bay', {
+    candidate('GX-5 Scout', '120mm lift + bay', {
       frameId: 'frame-hexa-600', motorId: 'motor-4006-340kv', batteryId: 'battery-6750-6s',
       propellerId: 'prop-12x50', escId: 'esc-80a', cameraId: 'camera-4k', canopyId: 'canopy-carbon',
     }, {
-      wheelbaseMm: 620, motorCageDiameter: 88, motorCageDepth: 28, batteryDimensions: [28, 16], strutCount: 4, wallThickness: 2.4, motorMounts: 6,
+      wheelbaseMm: 120, motorCageDiameter: 60, motorCageDepth: 22, batteryDimensions: [28, 16], strutCount: 4, wallThickness: 2.4, motorMounts: 4,
     }),
   ],
   industrial: [
-    candidate('GX-6 Rig', 'Octo redundancy chassis', {
+    candidate('GX-6 Rig', '140mm industrial whoop', {
       frameId: 'frame-octo-800', motorId: 'motor-5008-340kv', batteryId: 'battery-10000-6s',
       propellerId: 'prop-12x50', escId: 'esc-80a', cameraId: 'camera-4k', canopyId: 'canopy-carbon',
     }, {
-      wheelbaseMm: 800, motorCageDiameter: 100, motorCageDepth: 30, batteryDimensions: [34, 20], strutCount: 4, wallThickness: 2.8, motorMounts: 8,
+      wheelbaseMm: 140, motorCageDiameter: 70, motorCageDepth: 24, batteryDimensions: [34, 20], strutCount: 4, wallThickness: 2.8, motorMounts: 4,
     }),
-    candidate('GX-6 Surveyor', 'Slow survey geometry', {
+    candidate('GX-6 Surveyor', '150mm survey whoop', {
       frameId: 'frame-octo-800', motorId: 'motor-5008-340kv', batteryId: 'battery-10000-6s',
       propellerId: 'prop-14inch', escId: 'esc-80a', cameraId: 'camera-4k', canopyId: 'canopy-carbon',
     }, {
-      wheelbaseMm: 860, motorCageDiameter: 110, motorCageDepth: 32, batteryDimensions: [34, 20], strutCount: 4, wallThickness: 2.8, motorMounts: 8,
+      wheelbaseMm: 150, motorCageDiameter: 74, motorCageDepth: 25, batteryDimensions: [34, 20], strutCount: 4, wallThickness: 2.8, motorMounts: 4,
     }),
-    candidate('GX-6 Compact', 'Hexa when octo is overkill', {
+    candidate('GX-6 Compact', '125mm compact whoop', {
       frameId: 'frame-hexa-600', motorId: 'motor-5008-340kv', batteryId: 'battery-10000-6s',
       propellerId: 'prop-12x50', escId: 'esc-80a', cameraId: 'camera-4k', canopyId: 'canopy-carbon',
     }, {
-      wheelbaseMm: 650, motorCageDiameter: 92, motorCageDepth: 28, batteryDimensions: [32, 18], strutCount: 4, wallThickness: 2.5, motorMounts: 6,
+      wheelbaseMm: 125, motorCageDiameter: 64, motorCageDepth: 22, batteryDimensions: [32, 18], strutCount: 4, wallThickness: 2.5, motorMounts: 4,
     }),
   ],
 };
-
-/** Infer layout overrides from free-text mission notes (prompt-based). */
-function resolveApplication(brief: DesignBrief): DesignBrief['application'] {
-  const n = (brief.notes || '').toLowerCase();
-  if (/octo|octa|8[- ]?rotor|agricultur|spray|farm/.test(n)) return 'industrial';
-  if (/hexa|6[- ]?rotor|heavy.?lift|cargo|payload/.test(n)) return 'heavy-lift';
-  if (/cine|film|gimbal|whoop|duct/.test(n)) return 'cinema';
-  if (/race|freestyle|fpv gate/.test(n)) return 'racing';
-  if (/long.?range|endurance|cruise/.test(n)) return 'long-range';
-  return brief.application;
-}
 
 function buildConfig(parts: DesignPartIds): DroneConfig | null {
   const frame = droneFrames.find((f) => f.id === parts.frameId);
@@ -246,9 +236,7 @@ function safetyChecks(config: DroneConfig): DesignAlternative['safety'] {
 
 /** Plan 2–3 alternatives from the brief (catalog + physics). CAD fills stlUrl later. */
 export function planAlternatives(brief: DesignBrief): DesignAlternative[] {
-  const app = resolveApplication(brief);
-  const list = CANDIDATES[app] || CANDIDATES.freestyle;
-  const notesHint = app !== brief.application ? `Notes remapped application → ${app}. ` : '';
+  const list = CANDIDATES[brief.application] || CANDIDATES.freestyle;
 
   const alts = list.map((c, idx) => {
     const config = buildConfig(c.parts);
@@ -273,7 +261,7 @@ export function planAlternatives(brief: DesignBrief): DesignAlternative[] {
     const safety = safetyChecks(config);
     const bom = bomFromConfig(config);
     let score = 100;
-    const reasons: string[] = notesHint ? [notesHint.trim()] : [];
+    const reasons: string[] = [];
 
     const fails = safety.filter((s) => s.severity === 'fail').length;
     const warns = safety.filter((s) => s.severity === 'warn').length;

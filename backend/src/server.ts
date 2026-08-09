@@ -445,6 +445,6 @@ app.listen(PORT, () => {
   console.log(`   POST /api/jobs/:id/export`);
   console.log(`   GET  /api/memory`);
   console.log(`   POST /api/generate-chassis`);
-  console.log(`   CAD: headless Blender (set BLENDER_PATH + GEMINI_API_KEY in .env)`);
+  console.log(`   Phase 1 CAD: OpenSCAD whoop STL (OPENSCAD_PATH / WHOOP_SCAD)`);
   console.log('');
 });

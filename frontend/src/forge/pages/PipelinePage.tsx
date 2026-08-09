@@ -17,7 +17,7 @@ export const PipelinePage: React.FC = () => {
       if (stop || !j) return;
       if (j.status === 'done') {
         if (timer) clearInterval(timer);
-        setTimeout(() => !stop && navigate(`/forge/results/${jobId}`), 700);
+        setTimeout(() => !stop && navigate(`/forge/results/${jobId}`), 600);
         return;
       }
       if (j.status === 'failed' && timer) clearInterval(timer);
@@ -43,10 +43,13 @@ export const PipelinePage: React.FC = () => {
 
   const done = job.steps.filter((s) => s.status === 'done').length;
   const pct = Math.round((done / job.steps.length) * 100);
+  const designGenerated = job.status === 'done' && job.alternatives.some((a) => !!a.stlUrl);
 
   return (
     <>
-      <h1 className="forge-h1">{job.status === 'done' ? 'Designs ready' : 'Agents working'}</h1>
+      <h1 className="forge-h1">
+        {designGenerated ? 'Design generated' : job.status === 'failed' ? 'Job failed' : 'CAD loop running'}
+      </h1>
       <p className="forge-sub">
         Job <code>{job.id}</code>
         {job.error ? ` — ${job.error}` : ''}
@@ -61,14 +64,17 @@ export const PipelinePage: React.FC = () => {
             <span className="forge-dot">{step.status === 'done' ? '✓' : step.status === 'failed' ? '✕' : ''}</span>
             <div>
               <strong>{step.label}</strong>
-              {step.detail && <p style={{ margin: '0.25rem 0 0', fontSize: '0.82rem', color: '#6b7280' }}>{step.detail}</p>}
+              {step.detail && (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.82rem', color: '#6b7280' }}>{step.detail}</p>
+              )}
             </div>
           </li>
         ))}
       </ul>
 
-      {job.status === 'done' && (
+      {designGenerated && (
         <div style={{ marginTop: '1.5rem' }}>
+          <p style={{ color: '#059669', fontWeight: 800, marginBottom: '0.75rem' }}>Design generated</p>
           <Link to={`/forge/results/${job.id}`} className="forge-btn">
             Review {job.alternatives.length} alternatives →
           </Link>

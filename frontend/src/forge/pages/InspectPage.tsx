@@ -29,26 +29,36 @@ export const InspectPage: React.FC = () => {
     <>
       <h1 className="forge-h1">{alt.name}</h1>
       <p className="forge-sub">
-        Generated chassis · {alt.chassisParams.wheelbaseMm}mm wheelbase · {alt.chassisParams.material} ·{' '}
-        {alt.chassisParams.manufacturing}
+        {alt.stlUrl ? 'Design generated' : 'CAD pending'} · {alt.chassisParams.wheelbaseMm}mm whoop ·{' '}
+        {alt.chassisParams.material} · {alt.chassisParams.manufacturing}
       </p>
 
       <div className="forge-inspect">
         <div className="forge-stage">
           <div className="forge-stage-label">
-            <span className="live-dot" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#059669', marginRight: 8 }} />
-            Drag to orbit · OpenSCAD STL
+            <span
+              style={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: alt.stlUrl ? '#059669' : '#d97706',
+                marginRight: 8,
+              }}
+            />
+            Drag to orbit · OpenSCAD whoop STL
           </div>
-          <ChassisViewer stlUrl={alt.stlUrl} />
-          <p className="forge-stage-note">
-            {alt.stlUrl ? alt.stlUrl : 'CAD did not produce an STL for this alternative.'}
-          </p>
+          <ChassisViewer
+            stlUrl={alt.stlUrl}
+            wheelbaseMm={alt.chassisParams.wheelbaseMm}
+            motorCount={alt.chassisParams.motorMounts}
+          />
         </div>
 
         <aside style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="forge-card">
             <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Live specs
+              Specs
             </h3>
             <dl className="forge-specs">
               <dt>Weight</dt>
