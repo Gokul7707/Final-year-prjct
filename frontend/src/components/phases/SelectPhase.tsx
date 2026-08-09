@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DRONE_TYPES, type DroneClassId } from '@/data/droneTypes';
 import { useSessionStore } from '@/store/sessionStore';
@@ -133,8 +134,8 @@ const TornEdge: React.FC<{ fill: string }> = ({ fill }) => (
 
 export const SelectPhase: React.FC = () => {
   const username = useSessionStore((s) => s.username);
-  const selectDroneClass = useSessionStore((s) => s.selectDroneClass);
   const logout = useSessionStore((s) => s.logout);
+  const navigate = useNavigate();
   const trackRef = useRef<HTMLDivElement>(null);
   const { progress, progressRef } = useTrackProgress(trackRef);
 
@@ -144,13 +145,9 @@ export const SelectPhase: React.FC = () => {
   const chapter = CHAPTERS[index];
   const localT = rawIndex - Math.floor(rawIndex);
 
+  /** Hangar look unchanged — CTA enters Phase 1 forge (brief → OpenSCAD STL). */
   const onCta = () => {
-    if (chapter.droneId === 'custom') {
-      selectDroneClass('custom', 'frame-quad-250');
-      return;
-    }
-    const drone = DRONE_TYPES.find((d) => d.id === chapter.droneId);
-    if (drone) selectDroneClass(drone.id, drone.frameId);
+    navigate(`/forge?class=${encodeURIComponent(chapter.droneId || 'custom')}`);
   };
 
   return (
@@ -281,7 +278,7 @@ export const SelectPhase: React.FC = () => {
               key={drone.id}
               type="button"
               className="commercial-lineup-card"
-              onClick={() => selectDroneClass(drone.id, drone.frameId)}
+              onClick={() => navigate(`/forge?class=${encodeURIComponent(drone.id)}`)}
             >
               <img src={drone.image} alt={drone.name} draggable={false} />
               <strong>{drone.name}</strong>

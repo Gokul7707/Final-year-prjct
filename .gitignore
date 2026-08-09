@@ -49,8 +49,9 @@ coverage/
 # Vite
 .vite/
 
-# Generated chassis files
+# Generated chassis files + job store
 output/
+backend/data/
 
 # Misc
 .turbo/

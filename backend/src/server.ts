@@ -6,16 +6,26 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { droneFrames, motors, batteries, propellers, escs } from './shared/database.js';
 import { calculateDroneSpecs, generateBOM } from './shared/calculator.js';
 import type { DroneConfig } from './shared/types.js';
-import { generateWhoopChassis, PRESETS } from './cad/generateWhoop.js';
+import { generateWhoopChassis, PRESETS, OUTPUT_DIR, PROJECT_ROOT } from './cad/generateWhoop.js';
+import { createJobRecord, getJob, listMemory } from './jobs/jobStore.js';
+import { runDesignJob } from './jobs/jobRunner.js';
+import type { DesignBrief } from './types/genesis.js';
 
 dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Middleware — allow hangar Vite ports (5173/5174) + forge
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:5174')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, cb) => {
+    if (!origin || corsOrigins.includes(origin) || corsOrigins.includes('*')) return cb(null, true);
+    return cb(null, corsOrigins[0]);
+  },
   credentials: true,
 }));
 app.use(express.json());
@@ -328,19 +338,113 @@ app.post('/api/generate-chassis', async (req: Request, res: Response) => {
   }
 });
 
-// Serve generated STL files
-app.use('/output', express.static(path.resolve(process.cwd(), '../output')));
+// —— Phase 1 job API (brief → CAD → alternatives)
+app.get('/api/catalog', (_req: Request, res: Response) => {
+  res.json({ frames: droneFrames, motors, batteries, propellers, escs });
+});
+
+app.post('/api/jobs', async (req: Request, res: Response) => {
+  try {
+    const brief = req.body as DesignBrief;
+    if (!brief?.application) {
+      return res.status(400).json({ error: 'DesignBrief.application is required' });
+    }
+    const job = await createJobRecord({
+      application: brief.application,
+      payloadG: Number(brief.payloadG) || 0,
+      flightTimeMin: Number(brief.flightTimeMin) || 5,
+      budgetInr: Number(brief.budgetInr) || 30000,
+      material: brief.material || 'carbon',
+      manufacturing: brief.manufacturing || '3d-print',
+      notes: brief.notes || '',
+    });
+    // Fire-and-forget runner — client polls GET /api/jobs/:id
+    void runDesignJob(job.id);
+    return res.status(201).json({ id: job.id });
+  } catch (error: any) {
+    console.error('Create job error:', error);
+    return res.status(500).json({ error: 'Failed to create job', details: error?.message });
+  }
+});
+
+app.get('/api/jobs/:id', async (req: Request, res: Response) => {
+  const job = await getJob(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json(job);
+});
+
+app.post('/api/jobs/:id/export', async (req: Request, res: Response) => {
+  const job = await getJob(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  const altId = req.body?.alternativeId || job.alternatives[0]?.id;
+  const alt = job.alternatives.find((a) => a.id === altId) || job.alternatives[0];
+  if (!alt) return res.status(400).json({ error: 'No alternatives on this job' });
+
+  const report = `# GenesisAI Design Report — ${alt.name}
+
+Job: ${job.id}
+Generated: ${new Date().toISOString()}
+Application: ${job.brief.application}
+
+## Justification
+${alt.justification}
+
+## Chassis parameters
+- Wheelbase: ${alt.chassisParams.wheelbaseMm} mm
+- Motor cage Ø: ${alt.chassisParams.motorCageDiameter} mm
+- Wall thickness: ${alt.chassisParams.wallThickness} mm
+- Material: ${alt.chassisParams.material}
+- Manufacturing: ${alt.chassisParams.manufacturing}
+
+## Specifications
+- Weight: ${alt.specs.totalWeight} g
+- Max thrust: ${alt.specs.maxThrust} g
+- T/W: ${alt.specs.thrustToWeight}
+- Hover time: ${alt.specs.estimatedFlightTime} min
+- Max speed: ${alt.specs.maxSpeed} km/h
+- Build cost: ₹${alt.specs.buildCost}
+
+## Bill of materials
+${alt.bom.map((l) => `- ${l.label}: ${l.detail} — ₹${l.price}`).join('\n')}
+
+## Safety
+${alt.safety.map((s) => `- [${s.severity.toUpperCase()}] ${s.title} — ${s.detail}`).join('\n')}
+
+## Artifacts
+- STL: ${alt.stlUrl || 'not generated'}
+- SCAD: ${alt.scadUrl || 'not generated'}
+`;
+
+  return res.json({
+    alternativeId: alt.id,
+    stlUrl: alt.stlUrl,
+    scadUrl: alt.scadUrl,
+    reportMarkdown: report,
+    bom: alt.bom,
+    specs: alt.specs,
+  });
+});
+
+app.get('/api/memory', async (_req: Request, res: Response) => {
+  const projects = await listMemory();
+  res.json(projects);
+});
+
+// Serve generated STL/SCAD (project output/)
+app.use('/output', express.static(path.resolve(PROJECT_ROOT, 'output')));
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`\n🚁 DroneForge API running on http://localhost:${PORT}`);
-  console.log(`📚 API Documentation:`);
-  console.log(`   GET  /health - Health check`);
-  console.log(`   GET  /api/parts - Get all parts catalog`);
-  console.log(`   POST /api/calculate-specs - Calculate drone specs`);
-  console.log(`   POST /api/generate-bom - Generate Bill of Materials`);
-  console.log(`   POST /api/chat - Chat with AI assistant`);
-  console.log(`   POST /api/ai-build-drone - AI builds drone from prompt`);
-  console.log(`   POST /api/compare-drone - Compare drone with market alternatives`);
-  console.log(`   POST /api/generate-chassis - Generate whoop STL via OpenSCAD\n`);
+  console.log(`\n🚁 GenesisAI API on http://localhost:${PORT}`);
+  console.log(`   PROJECT_ROOT=${PROJECT_ROOT}`);
+  console.log(`   OUTPUT_DIR=${OUTPUT_DIR}`);
+  console.log(`   GET  /health`);
+  console.log(`   GET  /api/catalog`);
+  console.log(`   POST /api/jobs`);
+  console.log(`   GET  /api/jobs/:id`);
+  console.log(`   POST /api/jobs/:id/export`);
+  console.log(`   GET  /api/memory`);
+  console.log(`   POST /api/generate-chassis`);
+  console.log(`   CAD: headless Blender (set BLENDER_PATH + GEMINI_API_KEY in .env)`);
+  console.log('');
 });

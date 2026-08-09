@@ -1,40 +1,62 @@
-version: '3.8'
-
+# GenesisAI Phase 1 stack — hangar UI + forge pipeline + OpenSCAD CAD
 services:
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "5173:5173"
+      - '5173:5173'
     environment:
-      - VITE_API_URL=http://backend:5000
+      - VITE_API_URL=http://localhost:5000
+      - VITE_PROXY_API=http://backend:5000
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0 --port 5173
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
     ports:
-      - "5000:5000"
+      - '5000:5000'
     environment:
       - PORT=5000
       - NODE_ENV=development
-      - CORS_ORIGIN=http://localhost:5173
-      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - BLENDER_PATH=/usr/bin/blender
+      - BLENDER_SCRIPT=/project/cad/blender/generate_multirotor.py
+      - PROJECT_ROOT=/project
+      - OUTPUT_DIR=/project/output/chassis
+      - JOBS_DATA_DIR=/project/backend/data/jobs
+      - OPENSCAD_PATH=/usr/bin/openscad
+      - WHOOP_SCAD=/project/cad/whoop/whoop.scad
+      - MULTIROTOR_SCAD=/project/cad/genesis/multirotor.scad
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - ./cad:/project/cad:ro
+      - ./output:/project/output
+      - ./backend/data:/project/backend/data
+    # Dev: run TypeScript directly so volume mounts hot-reload
+    command: npm run dev
 
-  # Optional: Add a database service if you need persistent storage
+  # Optional persistence for later phases (Engineering Memory cloud)
   # postgres:
-  #   image: postgres:16
+  #   image: postgres:16-alpine
   #   environment:
-  #     POSTGRES_DB: droneforge
-  #     POSTGRES_PASSWORD: password
+  #     POSTGRES_DB: genesis
+  #     POSTGRES_PASSWORD: genesis
   #   ports:
-  #     - "5432:5432"
+  #     - '5432:5432'
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+
+# volumes:
+#   pgdata:
