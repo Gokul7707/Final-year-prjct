@@ -437,6 +437,15 @@ async function fetchAiAlternatives(brief: DesignBrief): Promise<AiVariantSuggest
 export async function planAlternatives(brief: DesignBrief): Promise<DesignAlternative[]> {
   const list = CANDIDATES[brief.application] || CANDIDATES.freestyle;
   const aiSuggestions = await fetchAiAlternatives(brief);
+  const layoutFrame: Record<string, string> = {
+    tri: 'frame-tri-330',
+    quad: 'frame-quad-250',
+    hexa: 'frame-hexa-600',
+    octa: 'frame-octo-800',
+  };
+  const layoutMounts: Record<string, number> = { tri: 3, quad: 4, hexa: 6, octa: 8 };
+  const lockedFrame = brief.chassisLayout ? layoutFrame[brief.chassisLayout] : null;
+  const lockedMounts = brief.chassisLayout ? layoutMounts[brief.chassisLayout] : null;
 
   const alts = await Promise.all(list.map(async (c, idx) => {
     const variantParts = withVariant(c.parts, idx + 1, brief);
@@ -444,15 +453,22 @@ export async function planAlternatives(brief: DesignBrief): Promise<DesignAltern
     const mergedParts = {
       ...variantParts,
       ...(aiVariant?.parts || {}),
+      ...(lockedFrame ? { frameId: lockedFrame } : {}),
     } as DesignPartIds;
     const config = buildConfig(mergedParts);
+    const chassisParams = {
+      ...c.chassis,
+      material: brief.material,
+      manufacturing: brief.manufacturing,
+      ...(lockedMounts ? { motorMounts: lockedMounts, strutCount: lockedMounts } : {}),
+    };
     if (!config) {
       return {
         id: `alt-${idx + 1}`,
         name: aiVariant?.name || c.name,
         tagline: aiVariant?.tagline || c.tagline,
         score: 10,
-        chassisParams: { ...c.chassis, material: brief.material, manufacturing: brief.manufacturing },
+        chassisParams,
         partIds: mergedParts,
         bom: [],
         specs: { totalWeight: 0, maxThrust: 0, thrustToWeight: 0, estimatedFlightTime: 0, maxSpeed: 0, buildCost: 0 },
@@ -468,6 +484,10 @@ export async function planAlternatives(brief: DesignBrief): Promise<DesignAltern
     const bom = bomFromConfig(config);
     let score = 100;
     const reasons: string[] = [];
+
+    if (lockedFrame) {
+      reasons.push(`Chassis layout locked to ${brief.chassisLayout} (${lockedMounts} motors).`);
+    }
 
     const fails = safety.filter((s) => s.severity === 'fail').length;
     const warns = safety.filter((s) => s.severity === 'warn').length;
@@ -517,7 +537,7 @@ export async function planAlternatives(brief: DesignBrief): Promise<DesignAltern
       name: aiVariant?.name || c.name,
       tagline: aiVariant?.tagline || c.tagline,
       score,
-      chassisParams: { ...c.chassis, material: brief.material, manufacturing: brief.manufacturing },
+      chassisParams,
       partIds: mergedParts,
       bom,
       specs,

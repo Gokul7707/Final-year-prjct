@@ -6,6 +6,8 @@ export type DesignApplication =
   | 'heavy-lift'
   | 'industrial';
 
+export type ChassisLayout = 'tri' | 'quad' | 'hexa' | 'octa';
+
 export interface DesignBrief {
   application: DesignApplication;
   payloadG: number;
@@ -14,6 +16,12 @@ export interface DesignBrief {
   material: 'carbon' | 'hybrid' | 'tpu' | 'titanium';
   manufacturing: '3d-print' | 'cnc' | 'hybrid';
   notes?: string;
+  /** Freeform mission text that drove the dynamic quiz */
+  missionPrompt?: string;
+  /** Locked chassis topology (tri…octa) */
+  chassisLayout?: ChassisLayout;
+  /** Raw quiz answers from the brief flow */
+  quizAnswers?: Record<string, string>;
 }
 
 export type AgentStepId = 'requirements' | 'benchmark' | 'plan' | 'cad' | 'evaluate' | 'review';

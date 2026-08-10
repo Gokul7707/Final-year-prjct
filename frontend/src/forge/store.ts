@@ -10,6 +10,9 @@ export const DEFAULT_BRIEF: DesignBrief = {
   material: 'carbon',
   manufacturing: '3d-print',
   notes: '',
+  missionPrompt: '',
+  chassisLayout: 'quad',
+  quizAnswers: {},
 };
 
 interface ForgeStore {

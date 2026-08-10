@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import './forge.css';
 
 const STEPS = [
-  { key: 'brief', label: 'Brief', match: /\/forge\/?$/ },
+  { key: 'brief', label: 'Prompt', match: /\/forge\/?$/ },
   { key: 'pipeline', label: 'Agents', match: /\/forge\/pipeline/ },
   { key: 'results', label: 'Alternatives', match: /\/forge\/results/ },
   { key: 'inspect', label: 'Inspect', match: /\/forge\/inspect/ },

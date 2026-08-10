@@ -8,6 +8,7 @@ import { droneFrames, motors, batteries, propellers, escs } from './shared/datab
 import { calculateDroneSpecs, generateBOM } from './shared/calculator.js';
 import type { DroneConfig } from './shared/types.js';
 import { generateWhoopChassis, PRESETS, OUTPUT_DIR, PROJECT_ROOT } from './cad/generateWhoop.js';
+import { buildPlanFromBrief, persistBuildArtifacts } from './cad/buildPlan.js';
 import { createJobRecord, getJob, listMemory } from './jobs/jobStore.js';
 import { runDesignJob } from './jobs/jobRunner.js';
 import type { DesignBrief } from './types/genesis.js';
@@ -48,15 +49,22 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   return next(err);
 });
 
-// Initialize Gemini client
+// Initialize Gemini + Groq (user-supplied dual brain)
 const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+const hasGroqKey = Boolean(process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.trim().length > 0);
 const genAI = hasGeminiKey ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string) : null;
 const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+const groqModel = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 const model = genAI?.getGenerativeModel({ model: modelName }) ?? null;
 if (hasGeminiKey) {
   console.log(`Using Gemini model: ${modelName}`);
 } else {
-  console.warn('GEMINI_API_KEY is not set. AI endpoints will return an error.');
+  console.warn('GEMINI_API_KEY is not set. Gemini endpoints will fall back when possible.');
+}
+if (hasGroqKey) {
+  console.log(`Using Groq model: ${groqModel}`);
+} else {
+  console.warn('GROQ_API_KEY is not set. Dual-AI quiz will use Gemini/local only.');
 }
 
 // Health check
@@ -156,21 +164,66 @@ Current drone config: ${JSON.stringify(droneConfig, null, 2)}`;
   }
 });
 
+async function generateGroqText(prompt: string): Promise<string> {
+  if (!hasGroqKey) {
+    throw new Error('GROQ_API_KEY missing');
+  }
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: groqModel,
+      temperature: 0.35,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are Genesis Forge, an expert FPV/UAV chassis engineer. Reply with compact JSON when asked.',
+        },
+        { role: 'user', content: prompt },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Groq error ${res.status}: ${detail.slice(0, 240)}`);
+  }
+  const data = (await res.json()) as any;
+  return String(data?.choices?.[0]?.message?.content || '');
+}
+
 async function generateAiText(prompt: string): Promise<string> {
-  if (!model) {
-    throw new Error('AI model unavailable. Set GEMINI_API_KEY in backend environment.');
+  const errors: string[] = [];
+
+  if (model) {
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      });
+      const text = extractResponseText(result);
+      if (text && !text.startsWith('<<TEXT_EXTRACTION_ERROR')) return text;
+      errors.push('Gemini empty response');
+    } catch (e: any) {
+      errors.push(`Gemini: ${e?.message ?? e}`);
+    }
   }
 
-  const result = await model.generateContent({
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: prompt }],
-      },
-    ],
-  });
+  if (hasGroqKey) {
+    try {
+      return await generateGroqText(prompt);
+    } catch (e: any) {
+      errors.push(`Groq: ${e?.message ?? e}`);
+    }
+  }
 
-  return extractResponseText(result);
+  throw new Error(
+    errors.length
+      ? `AI unavailable (${errors.join(' | ')})`
+      : 'AI model unavailable. Set GEMINI_API_KEY and/or GROQ_API_KEY.'
+  );
 }
 
 function extractResponseText(result: any): string {
@@ -516,6 +569,159 @@ app.post('/api/generate-chassis', async (req: Request, res: Response) => {
   }
 });
 
+// Accurate build plan + Blender Python / OpenSCAD from prompt + quiz
+app.post('/api/build-plan', async (req: Request, res: Response) => {
+  try {
+    const prompt = String(req.body?.prompt || '').trim();
+    if (prompt.length < 8) return res.status(400).json({ error: 'prompt is required' });
+    const answers = (req.body?.answers || {}) as Record<string, string>;
+    const application = String(req.body?.application || 'freestyle');
+
+    // Optional AI enrichment of features from the freeform prompt
+    let aiFeatures: string[] = [];
+    try {
+      const raw = await generateAiText(
+        `Extract a JSON array "features" of concrete drone hardware facts from this mission (max 10). Only facts implied by the text (motors, camera, ducts, payload, RTK, voltage, size). Mission:\n${prompt}\nReturn ONLY {"features":["..."]}`
+      );
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) {
+        const parsed = JSON.parse(m[0]);
+        if (Array.isArray(parsed.features)) aiFeatures = parsed.features.map(String).slice(0, 10);
+      }
+    } catch {
+      /* local plan still works */
+    }
+
+    const plan = buildPlanFromBrief({ prompt, answers, application });
+    if (aiFeatures.length) {
+      plan.features = [...new Set([...plan.features, ...aiFeatures])];
+      plan.summary = `Accurate ${plan.layout} build: ${plan.features.slice(0, 5).join(' · ')}.`;
+    }
+
+    const artifacts = await persistBuildArtifacts(PROJECT_ROOT, plan.layout, plan);
+    return res.json({
+      ...plan,
+      pythonUrl: artifacts.pythonPath,
+      scadUrl: artifacts.scadPath,
+      source: 'gemini+groq+rules',
+    });
+  } catch (error: any) {
+    console.error('build-plan error', error);
+    return res.status(500).json({ error: 'Failed to build plan', detail: error?.message });
+  }
+});
+
+// Dynamic brief quiz — Gemini + Groq craft mission-specific questions
+app.post('/api/brief-quiz', async (req: Request, res: Response) => {
+  try {
+    const prompt = String(req.body?.prompt || '').trim();
+    if (prompt.length < 8) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    const system = `You are Genesis Forge, an expert drone CAD brief interviewer.
+Given a freeform user mission prompt, return ONLY valid JSON (no markdown) shaped as:
+{
+  "summary": "one short sentence",
+  "application": "racing|freestyle|cinema|long-range|heavy-lift|industrial",
+  "questions": [
+    {
+      "id": "chassis",
+      "part": "chassis",
+      "question": "...",
+      "subtext": "...",
+      "options": [
+        { "id": "tri", "label": "Tricopter (3)", "hint": "..." },
+        { "id": "quad", "label": "Quadcopter (4)", "hint": "..." },
+        { "id": "hexa", "label": "Hexacopter (6)", "hint": "..." },
+        { "id": "octa", "label": "Octocopter (8)", "hint": "..." }
+      ]
+    }
+  ]
+}
+
+Rules:
+- First question MUST be chassis layout with options tri, quad, hexa, octa ONLY (never more than 8 motors).
+- Ask 4 to 6 total questions that are necessary for THIS prompt (skip irrelevant consumer quizzes).
+- part must be one of: chassis, motors, battery, props, avionics, optics, shell
+- option ids must be short machine tokens (snake or kebab)
+- Tailor wording to FPV / UAV / whoop / CAD chassis domain
+- Prefer engineering constraints: material, voltage, KV character, payload, camera, protection`;
+
+    let source = 'local';
+    let parsed: any = null;
+    let raw = '';
+
+    try {
+      raw = await generateAiText(`${system}\n\nUser mission prompt:\n${prompt}`);
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) parsed = JSON.parse(match[0]);
+      source = hasGeminiKey ? (hasGroqKey ? 'gemini+groq' : 'gemini') : 'groq';
+    } catch (e: any) {
+      console.warn('brief-quiz AI failed, using local scaffold', e?.message ?? e);
+    }
+
+    const fallbackApp = (() => {
+      const p = prompt.toLowerCase();
+      if (p.includes('race') || p.includes('fpv')) return 'racing';
+      if (p.includes('cinema') || p.includes('film') || p.includes('photo')) return 'cinema';
+      if (p.includes('long') || p.includes('endurance')) return 'long-range';
+      if (p.includes('heavy') || p.includes('lift') || p.includes('cargo')) return 'heavy-lift';
+      if (p.includes('industrial') || p.includes('inspect')) return 'industrial';
+      return 'freestyle';
+    })();
+
+    const ensureChassisFirst = (questions: any[]) => {
+      const chassisQ = {
+        id: 'chassis',
+        part: 'chassis',
+        question: 'Which chassis layout should we forge first?',
+        subtext: 'Motor count locks topology — Genesis caps at octa.',
+        options: [
+          { id: 'tri', label: 'Tricopter (3)', hint: 'Agile yaw' },
+          { id: 'quad', label: 'Quadcopter (4)', hint: 'Default FPV' },
+          { id: 'hexa', label: 'Hexacopter (6)', hint: 'Lift + redundancy' },
+          { id: 'octa', label: 'Octocopter (8)', hint: 'Max redundancy' },
+        ],
+      };
+      const isLayoutQ = (q: any) => {
+        const id = String(q?.id || '').toLowerCase();
+        const text = `${q?.question || ''} ${q?.subtext || ''}`.toLowerCase();
+        if (id === 'chassis' || id.includes('layout') || id.includes('motor_count')) return true;
+        if (text.includes('chassis layout') || text.includes('motor layout') || text.includes('tri') && text.includes('octa')) {
+          // Only drop if options look like layout picks
+          const opts = (q?.options || []).map((o: any) => String(o?.id || '').toLowerCase());
+          const layoutHits = ['tri', 'quad', 'hexa', 'octa'].filter((k) => opts.some((o: string) => o.includes(k)));
+          return layoutHits.length >= 3;
+        }
+        return false;
+      };
+      const cleaned = (Array.isArray(questions) ? questions : []).filter((q) => !isLayoutQ(q));
+      return [chassisQ, ...cleaned].slice(0, 6);
+    };
+
+    if (!parsed?.questions) {
+      return res.json({
+        source: 'local',
+        summary: 'Offline scaffold — chassis-first quiz for your mission.',
+        application: fallbackApp,
+        questions: ensureChassisFirst([]),
+      });
+    }
+
+    return res.json({
+      source,
+      summary: String(parsed.summary || 'Dynamic quiz ready.'),
+      application: parsed.application || fallbackApp,
+      questions: ensureChassisFirst(parsed.questions),
+      rawPreview: raw.slice(0, 400),
+    });
+  } catch (error: any) {
+    console.error('brief-quiz error', error);
+    return res.status(500).json({ error: 'Failed to build quiz', detail: error?.message });
+  }
+});
+
 // —— Phase 1 job API (brief → CAD → alternatives)
 app.get('/api/catalog', (_req: Request, res: Response) => {
   res.json({ frames: droneFrames, motors, batteries, propellers, escs });
@@ -535,6 +741,9 @@ app.post('/api/jobs', async (req: Request, res: Response) => {
       material: brief.material || 'carbon',
       manufacturing: brief.manufacturing || '3d-print',
       notes: brief.notes || '',
+      missionPrompt: brief.missionPrompt || '',
+      chassisLayout: brief.chassisLayout || 'quad',
+      quizAnswers: brief.quizAnswers || {},
     });
     // Fire-and-forget runner — client polls GET /api/jobs/:id
     void runDesignJob(job.id);
