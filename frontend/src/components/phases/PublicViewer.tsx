@@ -60,7 +60,7 @@ export const PublicViewer: React.FC<{ buildId: string }> = ({ buildId }) => {
             {payload?.id ? ` · ${payload.id}` : ''}
           </p>
         </div>
-        <a className="btn-signal" href={window.location.pathname}>
+        <a className="btn-signal" href="/forge">
           Open Forge
         </a>
       </header>

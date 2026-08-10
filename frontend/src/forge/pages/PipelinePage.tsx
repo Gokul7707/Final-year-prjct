@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useForgeStore } from '../store';
@@ -8,6 +8,8 @@ export const PipelinePage: React.FC = () => {
   const navigate = useNavigate();
   const job = useForgeStore((s) => s.job);
   const loadJob = useForgeStore((s) => s.loadJob);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     if (!jobId) return;
@@ -15,7 +17,14 @@ export const PipelinePage: React.FC = () => {
     let timer: ReturnType<typeof setInterval> | undefined;
     const tick = async () => {
       const j = await loadJob(jobId);
-      if (stop || !j) return;
+      if (stop) return;
+      setLoading(false);
+      if (!j) {
+        setMissing(true);
+        if (timer) clearInterval(timer);
+        return;
+      }
+      setMissing(false);
       if (j.status === 'done') {
         if (timer) clearInterval(timer);
         setTimeout(() => !stop && navigate(`/forge/results/${jobId}`), 600);
@@ -23,6 +32,7 @@ export const PipelinePage: React.FC = () => {
       }
       if (j.status === 'failed' && timer) clearInterval(timer);
     };
+    setLoading(true);
     tick();
     timer = setInterval(tick, 700);
     return () => {
@@ -31,7 +41,15 @@ export const PipelinePage: React.FC = () => {
     };
   }, [jobId, loadJob, navigate]);
 
-  if (!job || job.id !== jobId) {
+  if (loading && (!job || job.id !== jobId)) {
+    return (
+      <div className="forge-empty">
+        <p>Loading CAD loop…</p>
+      </div>
+    );
+  }
+
+  if (missing || !job || job.id !== jobId) {
     return (
       <div className="forge-empty">
         <p>Job not found.</p>
@@ -45,6 +63,7 @@ export const PipelinePage: React.FC = () => {
   const done = job.steps.filter((s) => s.status === 'done').length;
   const pct = Math.round((done / job.steps.length) * 100);
   const designGenerated = job.status === 'done' && job.alternatives.some((a) => !!a.stlUrl);
+  const cadRunning = job.steps.some((s) => s.id === 'cad' && s.status === 'running');
   const headline = useMemo(() => {
     if (designGenerated) return 'Design generated';
     if (job.status === 'failed') return 'Job failed';
@@ -69,6 +88,11 @@ export const PipelinePage: React.FC = () => {
           <div className="forge-progress">
             <span style={{ width: `${Math.max(6, pct)}%` }} />
           </div>
+          {cadRunning && (
+            <p style={{ margin: '0.75rem 0 0', fontSize: '0.9rem', color: '#2563eb', fontWeight: 600 }}>
+              OpenSCAD is meshing the whoop frame — usually 20–60 seconds. Keep this tab open.
+            </p>
+          )}
           <div className="forge-hero-actions">
             {designGenerated ? (
               <Link to={`/forge/results/${job.id}`} className="forge-btn">

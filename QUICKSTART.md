@@ -1,189 +1,67 @@
-# Quick Start Guide - DroneForge
+# GenesisAI — Review demo (Phase 0 + Phase 1)
 
-## Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- Claude API key (get one free at https://console.anthropic.com)
+## What you are showing
 
-## ⚡ Super Quick Setup (5 minutes)
+| Phase | Surface | Success look |
+|-------|---------|--------------|
+| **0** | Hangar commercial UI (`/`) | Scroll chapters, pick a class |
+| **1** | Forge CAD loop (`/forge`) | Brief → pipeline → **Design generated** → Inspect whoop STL |
 
-### 1. Clone & Install Dependencies
+## Fastest path (Docker)
+
+Docker Desktop must be running.
 
 ```bash
-# Terminal 1: Install frontend
+cd DroneChassisBuilder-main
+docker compose up -d --build
+```
+
+- Hangar: http://localhost:5173  
+- Forge: http://localhost:5173/forge  
+- API health: http://localhost:5000/health  
+
+Backend image includes **OpenSCAD** (required for real STL).
+
+## Live review script (~3 minutes)
+
+1. Open http://localhost:5173 — login / greeting → **Hangar**.
+2. Pick **Racing FPV** or **Freestyle** (whoop-scale CAD).
+3. Land on **Design brief** → leave defaults → **Generate design**.
+4. Pipeline shows CAD loop; wait for OpenSCAD (**~20–60s** for one STL).
+5. Success copy: **Design generated**.
+6. Open top alternative → **Inspect** → orbit the whoop STL.
+7. Optional: **Export** STL + report.
+
+Avoid Heavy-lift / Industrial for the live CAD demo (they still score parts; Phase 1 geometry is whoop-only).
+
+## Local npm (no Docker)
+
+Needs Node 18+ and **OpenSCAD** installed (`OPENSCAD_PATH` in `backend/.env` if not on PATH).
+
+```bash
+# Terminal A
+cd backend
+cp .env.example .env   # if needed
+npm install
+npm run dev
+
+# Terminal B
 cd frontend
 npm install
 npm run dev
 ```
 
-```bash
-# Terminal 2: Setup and start backend
-cd backend
-npm install
-cp .env.example .env
-# Edit .env and add your CLAUDE_API_KEY
-npm run dev
-```
+## Phase 1 checklist (for reviewers)
 
-### 2. Open in Browser
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:5000
+- [x] Design brief screen  
+- [x] Typed API client + job store (`/api/jobs`)  
+- [x] Visible CAD / agent steps  
+- [x] Backend OpenSCAD whoop STL from brief params  
+- [x] Viewer loads STL  
+- [x] “Design generated” success path  
 
-## 🚀 First Time Setup
+## Not in Phase 1 (say this if asked)
 
-### Get Claude API Key
-1. Go to https://console.anthropic.com
-2. Sign up (free trial available)
-3. Create an API key
-4. Copy it to `backend/.env` → `CLAUDE_API_KEY=sk-ant-...`
-
-### Frontend Setup
-```bash
-cd frontend
-npm install                    # Install dependencies
-npm run dev                   # Start dev server
-```
-
-Open http://localhost:5173 in your browser
-
-### Backend Setup
-```bash
-cd backend
-npm install                   # Install dependencies
-cp .env.example .env         # Create .env file
-# Edit .env and add your Claude API key
-npm run dev                  # Start development server
-```
-
-The backend will be available at http://localhost:5000
-
-## 📚 What to Try First
-
-### Build a Drone Manually
-1. Go to the app in your browser
-2. Click "Manual Selection" tab
-3. Select a frame type (try "Photography Quad 450")
-4. Choose motors, battery, propellers
-5. Watch the 3D drone update in real-time
-6. See specs change instantly
-
-### Use AI to Build
-1. Click "AI-Assisted" tab
-2. Type a description like:
-   - "I want a racing drone for FPV"
-   - "Build me a heavy-lift cargo drone"
-   - "Make the fastest drone possible"
-3. Watch the AI suggest components
-4. See the permission banner asking before changes
-5. Click "Allow" to apply suggestions
-
-### Export Your Build
-1. Click "Export BOM" to download your Bill of Materials
-2. Share it with friends or use it to buy parts
-
-## 🔧 Development Commands
-
-### Frontend
-```bash
-cd frontend
-npm run dev          # Start dev server on http://localhost:5173
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run lint         # Run ESLint
-```
-
-### Backend
-```bash
-cd backend
-npm run dev          # Start dev server on http://localhost:5000
-npm run build        # Compile TypeScript
-npm run lint         # Run ESLint
-```
-
-## 📝 API Endpoints Overview
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/health` | GET | Check if API is running |
-| `/api/parts` | GET | Get all available parts |
-| `/api/calculate-specs` | POST | Calculate drone specifications |
-| `/api/generate-bom` | POST | Generate Bill of Materials |
-| `/api/chat` | POST | Chat with AI assistant |
-| `/api/ai-build-drone` | POST | AI builds complete drone |
-| `/api/compare-drone` | POST | Compare with market drones |
-
-## 🐛 Troubleshooting
-
-### Port already in use
-If port 5173 (frontend) or 5000 (backend) is already in use:
-
-**Frontend:**
-```bash
-cd frontend
-npm run dev -- --port 3000
-```
-
-**Backend:** Edit `backend/src/server.ts` and change `PORT` variable
-
-### Claude API Key not working
-1. Check you copied it correctly (should start with `sk-ant-`)
-2. Ensure it's in `backend/.env` not `.env.example`
-3. Restart the backend server for changes to take effect
-
-### Modules not found errors
-```bash
-# Clear node_modules and reinstall
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Port 5000 conflict resolution:
-```bash
-# Check what's using port 5000
-lsof -i :5000          # Mac/Linux
-netstat -ano | findstr :5000  # Windows
-
-# Kill the process (get PID from above)
-kill -9 <PID>          # Mac/Linux
-taskkill /PID <PID> /F # Windows
-```
-
-## 📦 Technology Stack
-
-- **Frontend**: React 18 + Vite + Three.js + Tailwind CSS
-- **Backend**: Node.js + Express + TypeScript
-- **AI**: Claude API (Anthropic)
-- **State**: Zustand
-- **Animations**: Framer Motion
-- **3D**: Three.js with WebGL
-
-## 🎯 Next Steps
-
-1. **Customize drone parts**: Edit `frontend/src/shared/database.ts` and `backend/src/shared/database.ts` to add more components
-2. **Modify calculations**: Update `frontend/src/shared/calculator.ts` and `backend/src/shared/calculator.ts` for different physics
-3. **Add new features**: Create components in `frontend/src/components/`
-4. **Extend API**: Add routes in `backend/src/server.ts`
-5. **Improve 3D model**: Enhance `DroneVisualizer.tsx` with better geometries
-
-## 📞 Support
-
-Having issues? Check:
-1. Logs in the terminal for clues
-2. Browser console (F12) for frontend errors
-3. Backend logs for API errors
-4. GitHub issues if it's a known problem
-
-## ✨ Key Features to Explore
-
-- **Real-time visualization**: 3D drone updates as you select parts
-- **Live specs**: Weight, thrust, flight time calculated instantly
-- **AI suggestions**: Describe your drone, AI does the building
-- **Permission system**: You approve changes before AI applies them
-- **BOM export**: Download a complete shopping list
-- **Market comparison**: See how your drone compares to existing products
-
-Happy building! 🚁
-
----
-
-**Questions or feedback?** Feel free to open an issue or contribute!
+- Blender part GLBs / mount assembly → Phase 2  
+- Real multi-step LLM agents + Firebase memory → Phase 3  
+- FEA / topology optimization → Phase 4  

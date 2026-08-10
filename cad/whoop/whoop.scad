@@ -54,7 +54,10 @@ battery_cage_arm_y_thickness = 2.5;
 
 overlap_epsilon = 0.01;
 
-$fn = $preview ? 40 : 100;
+// Demo/export: adaptive tessellation keeps headless OpenSCAD nearer ~60s.
+$fn = $preview ? 40 : 0;
+$fa = $preview ? 12 : 16;
+$fs = $preview ? 0.5 : 1.25;
 
 /******************************************************************************/
 /* Derived Parameters */

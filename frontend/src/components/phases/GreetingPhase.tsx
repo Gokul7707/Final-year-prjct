@@ -5,7 +5,7 @@ import { useSessionStore } from '@/store/sessionStore';
 const LINES = [
   (name: string) => `Hey ${name} —`,
   () => `what's the mission today?`,
-  () => `Walk the hangar. Pick a real airframe. We'll assemble it piece by piece.`,
+  () => `Walk the hangar. Pick a class — then Forge turns your brief into a whoop chassis STL.`,
 ];
 
 export const GreetingPhase: React.FC = () => {

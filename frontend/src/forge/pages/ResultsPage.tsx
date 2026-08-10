@@ -30,8 +30,8 @@ export const ResultsPage: React.FC = () => {
           <div className="forge-eyebrow">Alternative shortlist</div>
           <h1 className="forge-h1">Design generated</h1>
           <p className="forge-sub">
-            Whoop alternatives for <strong>{job.brief.application}</strong>. Specs from catalog + solver; STL from
-            OpenSCAD. Pick one to inspect.
+            Whoop alternatives for <strong>{job.brief.application}</strong>. Specs from catalog + solver; OpenSCAD STL
+            on the top pick (★). Others are scored for comparison.
           </p>
           <div className="forge-pill-row">
             <span className="forge-pill">Ranked by score</span>
@@ -128,20 +128,28 @@ export const ResultsPage: React.FC = () => {
               <p className="forge-why">{alt.justification}</p>
 
               <footer className="forge-alt-actions">
-                <Link
-                  to={`/forge/inspect/${job.id}/${alt.id}`}
-                  className="forge-btn"
-                  onClick={() => selectAlternative(alt.id)}
-                >
-                  Inspect STL →
-                </Link>
-                <Link
-                  to={`/forge/export/${job.id}/${alt.id}`}
-                  className="forge-btn linkish"
-                  onClick={() => selectAlternative(alt.id)}
-                >
-                  Export
-                </Link>
+                {alt.stlUrl ? (
+                  <Link
+                    to={`/forge/inspect/${job.id}/${alt.id}`}
+                    className="forge-btn"
+                    onClick={() => selectAlternative(alt.id)}
+                  >
+                    Inspect STL →
+                  </Link>
+                ) : (
+                  <span className="forge-btn secondary" style={{ opacity: 0.55, pointerEvents: 'none' }}>
+                    Scored only
+                  </span>
+                )}
+                {alt.stlUrl && (
+                  <Link
+                    to={`/forge/export/${job.id}/${alt.id}`}
+                    className="forge-btn linkish"
+                    onClick={() => selectAlternative(alt.id)}
+                  >
+                    Export
+                  </Link>
+                )}
               </footer>
             </article>
           );

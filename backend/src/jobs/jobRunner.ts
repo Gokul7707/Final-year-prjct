@@ -12,8 +12,7 @@ async function setStep(job: DesignJob, id: AgentStepId, status: 'running' | 'don
 
 /**
  * Phase 1 — CAD loop:
- * Design brief → plan alternatives → OpenSCAD whoop STL per alt → evaluate → done
- * (“Design generated” success path when STLs exist.)
+ * Brief → plan/score alternatives → OpenSCAD STL for top pick → “Design generated”
  */
 export async function runDesignJob(jobId: string): Promise<void> {
   const job = await getJob(jobId);
@@ -46,71 +45,73 @@ export async function runDesignJob(jobId: string): Promise<void> {
     await setStep(job, 'plan', 'running');
     await sleep(300);
     job.alternatives = await planAlternatives(brief);
+    job.alternatives.sort((a, b) => b.score - a.score);
     await saveJob(job);
     await setStep(
       job,
       'plan',
       'done',
-      `Planned ${job.alternatives.length} whoop chassis directions from brief params.`
+      `Planned ${job.alternatives.length} whoop chassis directions; ranked by brief fit.`
     );
-
-    await setStep(job, 'cad', 'running', 'Generating whoop STL with OpenSCAD…');
-    for (let i = 0; i < job.alternatives.length; i++) {
-      const alt = job.alternatives[i];
-      const p = alt.chassisParams;
-      try {
-        const result = await generateWhoopChassis(
-          {
-            wheelbase: p.wheelbaseMm,
-            motorCageDiameter: p.motorCageDiameter,
-            motorCageDepth: p.motorCageDepth,
-            batteryDimensions: p.batteryDimensions,
-            strutCount: p.strutCount,
-            wallThickness: p.wallThickness,
-          },
-          `${job.id}_${alt.id}`
-        );
-        alt.stlUrl = `/output/chassis/${result.stlFilename}`;
-        alt.scadUrl = `/output/chassis/${result.scadFilename}`;
-      } catch (err: any) {
-        alt.stlUrl = null;
-        alt.scadUrl = null;
-        alt.justification = `${alt.justification} CAD error: ${err?.message || 'OpenSCAD failed'}.`;
-        alt.score = Math.max(5, alt.score - 25);
-        alt.safety = [
-          ...alt.safety,
-          { severity: 'fail', title: 'CAD generation failed', detail: err?.message || 'OpenSCAD failed' },
-        ];
-      }
-      job.alternatives[i] = alt;
-      await saveJob(job);
-    }
-
-    const stlCount = job.alternatives.filter((a) => a.stlUrl).length;
-    if (stlCount === 0) {
-      await setStep(
-        job,
-        'cad',
-        'failed',
-        'No whoop STL produced. Install OpenSCAD or use the Docker backend image.'
-      );
-      job.status = 'failed';
-      job.error = 'CAD generation failed for all alternatives';
-      await saveJob(job);
-      return;
-    }
-    await setStep(job, 'cad', 'done', `Design generated — ${stlCount}/${job.alternatives.length} whoop STL file(s).`);
 
     await setStep(job, 'evaluate', 'running');
     await sleep(250);
-    job.alternatives.sort((a, b) => b.score - a.score);
-    await saveJob(job);
     await setStep(
       job,
       'evaluate',
       'done',
-      'Scored against budget, endurance, payload, and compatibility.'
+      `Top pick: ${job.alternatives[0]?.name} (${job.alternatives[0]?.score}/100). Generating CAD for that frame.`
     );
+
+    await setStep(job, 'cad', 'running', 'OpenSCAD generating whoop STL for top pick (~20–60s)…');
+    const top = job.alternatives[0];
+    if (!top) {
+      await setStep(job, 'cad', 'failed', 'No alternatives planned.');
+      job.status = 'failed';
+      job.error = 'No design alternatives';
+      await saveJob(job);
+      return;
+    }
+
+    const p = top.chassisParams;
+    try {
+      const result = await generateWhoopChassis(
+        {
+          wheelbase: p.wheelbaseMm,
+          motorCageDiameter: p.motorCageDiameter,
+          motorCageDepth: p.motorCageDepth,
+          batteryDimensions: p.batteryDimensions,
+          strutCount: p.strutCount,
+          wallThickness: p.wallThickness,
+        },
+        `${job.id}_${top.id}`
+      );
+      top.stlUrl = `/output/chassis/${result.stlFilename}`;
+      top.scadUrl = `/output/chassis/${result.scadFilename}`;
+      job.alternatives[0] = top;
+      await saveJob(job);
+      await setStep(job, 'cad', 'done', `Design generated — whoop STL for ${top.name}.`);
+    } catch (err: any) {
+      top.stlUrl = null;
+      top.scadUrl = null;
+      top.justification = `${top.justification} CAD error: ${err?.message || 'OpenSCAD failed'}.`;
+      top.score = Math.max(5, top.score - 25);
+      top.safety = [
+        ...top.safety,
+        { severity: 'fail', title: 'CAD generation failed', detail: err?.message || 'OpenSCAD failed' },
+      ];
+      job.alternatives[0] = top;
+      await setStep(
+        job,
+        'cad',
+        'failed',
+        'No whoop STL produced. Install OpenSCAD or use Docker Compose (backend image).'
+      );
+      job.status = 'failed';
+      job.error = err?.message || 'CAD generation failed';
+      await saveJob(job);
+      return;
+    }
 
     await setStep(job, 'review', 'running');
     await sleep(200);
@@ -118,7 +119,7 @@ export async function runDesignJob(jobId: string): Promise<void> {
       job,
       'review',
       'done',
-      `Design generated. Top pick: ${job.alternatives[0]?.name} (${job.alternatives[0]?.score}/100).`
+      `Design generated. Inspect ${top.name} STL · ${job.alternatives.length - 1} scored alternative(s) listed.`
     );
 
     job.status = 'done';

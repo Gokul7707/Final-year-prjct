@@ -57,8 +57,8 @@ export const BriefPage: React.FC = () => {
           <div className="forge-eyebrow">Genesis Forge</div>
           <h1 className="forge-h1">Design brief</h1>
           <p className="forge-sub">
-            Define the mission, capture the constraints, and let the planner generate a tailored whoop chassis with real
-            STL output you can inspect and export.
+            Phase 1 whoop CAD: lock constraints → score alternatives → OpenSCAD builds one real STL for the top pick.
+            For a live demo use Racing or Freestyle (~20–60s).
           </p>
           <div className="forge-pill-row">
             <span className="forge-pill">Planner + CAD</span>
@@ -187,13 +187,16 @@ export const BriefPage: React.FC = () => {
         </div>
 
         <aside className="forge-card forge-card--side">
-          <h2 style={{ margin: '0 0 0.75rem', fontSize: '1rem' }}>Phase 1 CAD loop</h2>
+          <h2 style={{ margin: '0 0 0.75rem', fontSize: '1rem' }}>Review path (Phase 1)</h2>
           <ol style={{ margin: 0, paddingLeft: '1.1rem', color: '#4b5563', fontSize: '0.9rem', lineHeight: 1.7 }}>
-            <li>Brief is stored on a typed job.</li>
+            <li>Brief → typed job on the backend.</li>
             <li>Planner scores 2–3 whoop chassis options.</li>
-            <li>OpenSCAD writes a real STL from brief params.</li>
-            <li>Inspect loads the STL — success = “Design generated”.</li>
+            <li>OpenSCAD exports STL for the top pick.</li>
+            <li>Inspect orbits the mesh — success = “Design generated”.</li>
           </ol>
+          <p style={{ margin: '1rem 0 0', fontSize: '0.82rem', color: '#6b7280' }}>
+            Heavy-lift / industrial still score parts; geometry this phase is whoop-scale only.
+          </p>
         </aside>
       </div>
     </div>
