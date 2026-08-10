@@ -150,7 +150,7 @@ Current drone config: ${JSON.stringify(droneConfig, null, 2)}`;
       message: aiResponse,
       suggestions: extractSuggestions(aiResponse),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Chat error:', error);
     res.status(500).json({ error: 'Failed to process chat request', detail: error?.message ?? String(error) });
   }
@@ -190,7 +190,7 @@ function extractResponseText(result: any): string {
     }
 
     return String(response ?? '');
-  } catch (innerError) {
+  } catch (innerError: any) {
     console.warn('AI response extraction failed:', innerError);
     return `<<TEXT_EXTRACTION_ERROR: ${innerError?.message ?? String(innerError)}>>`;
   }
@@ -330,7 +330,7 @@ IMPORTANT: Always respond with a JSON object containing your recommendations lik
             console.warn('Failed to parse AI build JSON output:', parseError);
           }
         }
-      } catch (aiError) {
+      } catch (aiError: any) {
         console.error('AI build drone error:', aiError?.message ?? aiError, {
           stack: aiError?.stack ?? null,
           response: aiError?.response ?? null,
